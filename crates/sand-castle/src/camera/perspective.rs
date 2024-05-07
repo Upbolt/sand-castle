@@ -1,18 +1,16 @@
 use derive_builder::Builder;
+use derive_getters::Getters;
 
-use super::Camera;
+use crate::units::Vector3;
 
-#[derive(Default, Clone)]
-pub struct ViewFrustum {
-  pub near: f32,
-  pub far: f32,
-}
+use super::{Camera, ViewFrustum};
 
-#[derive(Builder)]
+#[derive(Builder, Getters)]
 pub struct PerspectiveCamera {
-  field_of_view: u8,
-  aspect_ratio: f32,
+  field_of_view: f32,
+  aspect_ratio: f64,
   view_frustum: ViewFrustum,
+  position: Vector3,
 }
 
 impl PerspectiveCamera {

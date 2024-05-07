@@ -1,10 +1,13 @@
 use derive_builder::Builder;
+use derive_getters::Getters;
 
-#[derive(Builder)]
+use super::Geometry;
+
+#[derive(Builder, Getters, Clone)]
 pub struct Torus {
   radius: f32,
   tube: f32,
-  radial_segmentse: u32,
+  radial_segments: u32,
   arc: u32,
 }
 
@@ -13,3 +16,5 @@ impl Torus {
     TorusBuilder::default()
   }
 }
+
+impl Geometry for Torus {}
