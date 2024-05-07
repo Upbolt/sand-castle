@@ -1,6 +1,8 @@
+use derive_getters::Getters;
+
 use crate::renderer::Render;
 
-#[derive(Default)]
+#[derive(Default, Getters)]
 pub struct Scene {
   renderables: Vec<Box<dyn Render>>,
 }

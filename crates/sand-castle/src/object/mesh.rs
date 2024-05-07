@@ -1,3 +1,8 @@
+use wgpu::{
+  Color, CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment,
+  RenderPassDescriptor, StoreOp, TextureViewDescriptor,
+};
+
 use crate::{
   geometry::Geometry,
   material::Material,

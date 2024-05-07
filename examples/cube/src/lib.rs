@@ -12,7 +12,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, Element, HtmlCanvasElement};
 
 #[wasm_bindgen(start)]
-fn run() {
+async fn run() {
   console_error_panic_hook::set_once();
 
   let web_window = window().expect("could not get window");
@@ -23,10 +23,10 @@ fn run() {
     .dyn_into::<HtmlCanvasElement>()
     .expect("could not convert into canvas");
 
-  setup_scene(canvas);
+  setup_scene(canvas).await;
 }
 
-fn setup_scene(canvas: HtmlCanvasElement) -> (Scene, Renderer) {
+async fn setup_scene(canvas: HtmlCanvasElement) -> (Scene, Renderer) {
   let web_window = window().expect("could not get window");
   let document = web_window.document().expect("could not get document");
   let body = document.body().expect("could not get body");
@@ -69,6 +69,7 @@ fn setup_scene(canvas: HtmlCanvasElement) -> (Scene, Renderer) {
     .pixel_ratio(web_window.device_pixel_ratio())
     .size((inner_width, inner_height))
     .build()
+    .await
     .expect("could not build renderer");
 
   let torus = Mesh::from_geometry(
