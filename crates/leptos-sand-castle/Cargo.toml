@@ -1,0 +1,12 @@
+[package]
+name = "leptos-sand-castle"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+leptos = "0.6"
+leptos-use = "0.10"
+sand-castle = { path = "../sand-castle" }

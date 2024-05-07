@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = ["crates/sand-castle", "crates/leptos-sand-castle"]
+exclude = ["examples"]
+
+[workspace.package]
+authors = ["Upbolt"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/Upbolt/sand-castle"
+version = "0.1.0"
