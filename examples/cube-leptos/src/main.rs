@@ -7,7 +7,10 @@ fn main() {
 
   mount_to_body(|| {
     view! {
-      <Canvas>
+      <Canvas
+        attr:width="500"
+        attr:height="281"
+      >
         // <span>"hi"</span>
       </Canvas>
     }

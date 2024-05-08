@@ -196,8 +196,6 @@ impl RendererBuilder {
       format: cap_format,
       width: size.0 as u32,
       height: size.1 as u32,
-      // width: 300,
-      // height: 200,
       present_mode: capabilities.present_modes[0],
       alpha_mode: capabilities.alpha_modes[0],
       view_formats: vec![],

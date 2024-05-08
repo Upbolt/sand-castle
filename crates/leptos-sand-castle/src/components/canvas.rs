@@ -37,6 +37,7 @@ pub fn Canvas(
   #[prop(optional)] driver: MaybeSignal<sand_castle::renderer::Driver>,
   #[prop(optional)] node_ref: NodeRef<html::Canvas>,
   #[prop(optional)] children: Option<Children>,
+  #[prop(attrs)] attrs: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
   let (scene, set_scene) = create_signal(Rc::new(Scene::new()));
   let renderer_resource = create_local_resource(
@@ -84,7 +85,10 @@ pub fn Canvas(
   });
 
   view! {
-    <canvas node_ref=node_ref />
+    <canvas
+      {..attrs}
+      node_ref=node_ref
+    />
     {children.map(|children| children())}
   }
 }
