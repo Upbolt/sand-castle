@@ -15,14 +15,14 @@ pub struct CanvasContextValue {
   scene: Signal<Rc<Scene>>,
 }
 
-async fn create_renderer(node_ref: Option<HtmlCanvasElement>) -> Option<Rc<Renderer>> {
-  let node = node_ref?;
+async fn create_renderer(ctx: Option<(HtmlCanvasElement, Driver)>) -> Option<Rc<Renderer>> {
+  let (node, driver) = ctx?;
   let canvas = node.dyn_ref::<HtmlCanvasElement>()?;
   let window = window()?;
 
   let new_renderer = Renderer::builder()
     .canvas(canvas.clone())
-    .driver(Driver::WebGL)
+    .driver(driver)
     .pixel_ratio(window.device_pixel_ratio())
     .size((canvas.client_width(), canvas.client_height()))
     .build()
@@ -45,7 +45,7 @@ pub fn Canvas(
       let node = node_ref.get()?;
       let node: &HtmlCanvasElement = node.as_ref();
 
-      Some(node.clone())
+      Some((node.clone(), driver.get()))
     },
     create_renderer,
   );
@@ -66,11 +66,7 @@ pub fn Canvas(
   });
 
   use_resize_observer(node_ref, move |entries, _| {
-    let Some(renderer) = renderer.get() else {
-      return;
-    };
-
-    let Some(entry) = entries.get(0) else {
+    let (Some(renderer), Some(entry)) = (renderer.get(), entries.get(0)) else {
       return;
     };
 

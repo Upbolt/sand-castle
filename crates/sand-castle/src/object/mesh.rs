@@ -9,18 +9,24 @@ use crate::{
   renderer::{Render, Renderer},
 };
 
-pub struct Mesh<T: Geometry, U: Material> {
-  geometry: T,
-  material: U,
+pub struct Mesh {
+  geometry: Box<dyn Geometry>,
+  material: Box<dyn Material>,
 }
 
-impl<T: Geometry, U: Material> Mesh<T, U> {
-  pub fn from_geometry(geometry: T, material: U) -> Self {
-    Self { geometry, material }
+impl Mesh {
+  pub fn from_geometry(
+    geometry: impl Geometry + 'static,
+    material: impl Material + 'static,
+  ) -> Self {
+    Self {
+      geometry: Box::new(geometry),
+      material: Box::new(material),
+    }
   }
 }
 
-impl<T: Geometry, U: Material> Render for Mesh<T, U> {
+impl Render for Mesh {
   fn id(&self) -> u32 {
     0
   }

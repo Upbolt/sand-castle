@@ -7,12 +7,14 @@ fn main() {
 
   mount_to_body(|| {
     view! {
-      <Canvas
-        attr:width="500"
-        attr:height="281"
-      >
-        // <span>"hi"</span>
-      </Canvas>
+      <div style="display: flex; height: 100vh; justify-content: center; align-items: center">
+        <Canvas
+          attr:width="500"
+          attr:height="281"
+          attr:style="overflow: hidden; border-radius: 8px; filter: drop-shadow(0px 5px 10px #00000044);"
+        >
+        </Canvas>
+      </div>
     }
   });
 }

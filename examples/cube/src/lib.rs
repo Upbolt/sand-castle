@@ -10,9 +10,18 @@ use sand_castle::{
 
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{window, Element, HtmlCanvasElement};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+}
+
 
 #[wasm_bindgen(start)]
-async fn run() {
+async fn main() {
   console_error_panic_hook::set_once();
 
   let web_window = window().expect("could not get window");
@@ -23,31 +32,11 @@ async fn run() {
     .dyn_into::<HtmlCanvasElement>()
     .expect("could not convert into canvas");
 
-  setup_scene(canvas).await;
-}
-
-async fn setup_scene(canvas: HtmlCanvasElement) -> (Scene, Renderer) {
-  let web_window = window().expect("could not get window");
-  let document = web_window.document().expect("could not get document");
-  let body = document.body().expect("could not get body");
-
   let mut scene = Scene::new();
-
-  let inner_width = web_window
-    .inner_width()
-    .expect("could not get inner window width")
-    .as_f64()
-    .expect("could not get inner window width as f64");
-
-  let inner_height = web_window
-    .inner_width()
-    .expect("could not get inner window width")
-    .as_f64()
-    .expect("could not get inner window width as f64");
 
   let camera = PerspectiveCamera::builder()
     .field_of_view(70.)
-    .aspect_ratio(inner_width / inner_height)
+    .aspect_ratio(canvas.client_width() as f64 / canvas.client_height() as f64)
     .view_frustum(ViewFrustum {
       near: 0.1,
       far: 1000.,
@@ -59,15 +48,11 @@ async fn setup_scene(canvas: HtmlCanvasElement) -> (Scene, Renderer) {
     .build()
     .expect("could not build camera");
 
-  body
-    .append_child(&canvas)
-    .expect("could not append canvas to body");
-
   let renderer = Renderer::builder()
     .driver(Driver::WebGL)
-    .canvas(canvas)
+    .size((canvas.client_width() as i32, canvas.client_height() as i32))
     .pixel_ratio(web_window.device_pixel_ratio())
-    .size((inner_width, inner_height))
+    .canvas(canvas)
     .build()
     .await
     .expect("could not build renderer");
@@ -89,5 +74,27 @@ async fn setup_scene(canvas: HtmlCanvasElement) -> (Scene, Renderer) {
 
   scene.push(torus);
 
-  (scene, renderer)
+  animation_loop(move || {
+    renderer.render(&scene);
+  });
+}
+
+fn request_animation_frame(f: &Closure<dyn FnMut()>) {
+  window()
+    .expect("could not get window")
+    .request_animation_frame(f.as_ref().unchecked_ref())
+    .expect("should register `requestAnimationFrame` OK");
+}
+
+fn animation_loop(mut callback: impl FnMut() + 'static) {
+  let f = Rc::new(RefCell::new(None));
+  let g = f.clone();
+
+  *g.borrow_mut() = Some(Closure::new(move || {
+    callback();
+    
+    request_animation_frame(f.borrow().as_ref().unwrap());
+  }));
+
+  request_animation_frame(g.borrow().as_ref().unwrap());
 }

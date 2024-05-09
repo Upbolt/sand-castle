@@ -9,7 +9,7 @@ use wgpu::{
 
 use crate::scene::Scene;
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, PartialEq)]
 pub enum Driver {
   #[default]
   WebGL,
@@ -62,9 +62,9 @@ impl Renderer {
         resolve_target: None,
         ops: Operations {
           load: LoadOp::Clear(Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
+            r: 0.01,
+            g: 0.01,
+            b: 0.01,
             a: 1.0,
           }),
           store: StoreOp::Store,

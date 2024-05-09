@@ -3,7 +3,7 @@ pub mod torus;
 
 use crate::units::Vector3;
 
-pub trait Geometry: Clone {
+pub trait Geometry {
   // fn attributes(&self);
   // fn bounding_box(&self);
   // fn bounding_sphere(&self);
