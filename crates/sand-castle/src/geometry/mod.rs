@@ -1,4 +1,4 @@
-pub mod cube;
+pub mod cuboid;
 pub mod torus;
 
 use crate::units::Vector3;

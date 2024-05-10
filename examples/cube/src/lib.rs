@@ -1,6 +1,6 @@
 use sand_castle::{
   camera::{perspective::PerspectiveCamera, ViewFrustum},
-  geometry::torus::Torus,
+  geometry::{torus::Torus, cuboid::Cuboid},
   material,
   object::mesh::Mesh,
   renderer::{Driver, Renderer},
@@ -57,12 +57,23 @@ async fn main() {
     .await
     .expect("could not build renderer");
 
+  let cube = Mesh::from_geometry(
+    Cuboid::builder()
+      .build()
+      .expect("could not build cuboid"),
+    material::mesh_basic::MeshBasic::builder()
+      .color(0xFF6347)
+      .wireframe(true)
+      .build()
+      .expect("could not build material")
+  );
+
   let torus = Mesh::from_geometry(
     Torus::builder()
       .radius(10.)
       .tube(3.)
       .radial_segments(16)
-      .arc(100)
+      .arc(100.)
       .build()
       .expect("could not build torus"),
     material::mesh_basic::MeshBasic::builder()
