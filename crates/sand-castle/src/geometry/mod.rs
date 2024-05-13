@@ -1,9 +1,31 @@
 pub mod cuboid;
 pub mod torus;
 
-use crate::units::Vector3;
+use derive_getters::Getters;
+use wgpu::{ShaderSource, VertexBufferLayout};
 
-pub trait Geometry {
+use crate::units::Vertex;
+
+use derive_more::{From, Into};
+
+#[derive(From, Into)]
+pub struct VerticesLayout(VertexBufferLayout<'static>);
+
+#[derive(Getters)]
+pub struct Geometry<'a> {
+  shader: ShaderSource<'a>,
+  vertices: Vec<Vertex>,
+  indices: Vec<u32>,
+}
+
+impl Geometry<'_> {}
+
+pub trait WithGeometry
+where
+  Self: Sized,
+{
+  fn vertices_layout() -> VerticesLayout;
+  fn into_geometry<'a>(self) -> Geometry<'a>;
   // fn attributes(&self);
   // fn bounding_box(&self);
   // fn bounding_sphere(&self);

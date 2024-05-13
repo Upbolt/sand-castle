@@ -1,11 +1,13 @@
 use derive_builder::Builder;
 use web_sys::HtmlCanvasElement;
 use wgpu::{
-  Backends, Color, CommandEncoderDescriptor, CreateSurfaceError, DeviceDescriptor, Features,
-  InstanceDescriptor, Limits, LoadOp, Operations, PowerPreference, RenderPassColorAttachment,
-  RenderPassDescriptor, RequestAdapterOptions, StoreOp, SurfaceConfiguration, SurfaceTarget,
-  TextureUsages, TextureViewDescriptor,
+  Backends, Color, CommandBuffer, CommandEncoderDescriptor, CreateSurfaceError, DeviceDescriptor,
+  Features, InstanceDescriptor, Limits, LoadOp, Operations, PowerPreference,
+  RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, StoreOp,
+  SurfaceConfiguration, SurfaceTarget, TextureUsages, TextureViewDescriptor,
 };
+
+use derive_more::{Deref, DerefMut, From, Into};
 
 use crate::scene::Scene;
 
@@ -35,6 +37,12 @@ pub struct Renderer {
   size: (i32, i32),
 }
 
+#[derive(From, Into)]
+pub struct GpuCommand(CommandBuffer);
+
+#[derive(From, Into, Deref, DerefMut)]
+pub struct RenderPass<'a>(wgpu::RenderPass<'a>);
+
 impl Renderer {
   pub fn builder() -> RendererBuilder {
     RendererBuilder::default()
@@ -55,32 +63,35 @@ impl Renderer {
         label: Some("mesh"),
       });
 
-    drop(encoder.begin_render_pass(&RenderPassDescriptor {
-      label: Some("render pass"),
-      color_attachments: &[Some(RenderPassColorAttachment {
-        view: &view,
-        resolve_target: None,
-        ops: Operations {
-          load: LoadOp::Clear(Color {
-            r: 0.01,
-            g: 0.01,
-            b: 0.01,
-            a: 1.0,
-          }),
-          store: StoreOp::Store,
-        },
-      })],
-      depth_stencil_attachment: None,
-      timestamp_writes: None,
-      occlusion_query_set: None,
-    }));
+    {
+      let mut render_pass = RenderPass(encoder.begin_render_pass(&RenderPassDescriptor {
+        label: Some("render pass"),
+        color_attachments: &[Some(RenderPassColorAttachment {
+          view: &view,
+          resolve_target: None,
+          ops: Operations {
+            load: LoadOp::Clear(Color {
+              r: 0.01,
+              g: 0.01,
+              b: 0.01,
+              a: 1.0,
+            }),
+            store: StoreOp::Store,
+          },
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+      }));
+
+      for renderable in scene.renderables() {
+        renderable.render(&self, &mut render_pass);
+      }
+    }
 
     self.queue.submit([encoder.finish()]);
 
     output.present();
-    for renderable in scene.renderables() {
-      renderable.render(&self);
-    }
   }
 
   pub fn resize(&self, size: (u32, u32)) {
@@ -107,11 +118,15 @@ impl Renderer {
   pub(crate) fn queue(&self) -> &wgpu::Queue {
     &self.queue
   }
+
+  pub(crate) fn surface_config(&self) -> &wgpu::SurfaceConfiguration {
+    &self.surface_config
+  }
 }
 
 pub trait Render {
   fn id(&self) -> u32;
-  fn render(&self, renderer: &Renderer);
+  fn render<'a, 'b: 'a>(&'b self, renderer: &'a Renderer, render_pass: &'a mut RenderPass<'b>);
 }
 
 #[derive(Debug)]

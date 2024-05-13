@@ -1,3 +1,6 @@
+#![feature(const_trait_impl)]
+#![feature(effects)]
+
 pub mod camera;
 pub mod geometry;
 pub mod lighting;

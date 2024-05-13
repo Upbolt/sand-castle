@@ -1,7 +1,8 @@
 use derive_builder::Builder;
 use derive_getters::Getters;
+use wgpu::ShaderSource;
 
-use super::Material;
+use super::WithMaterial;
 
 #[derive(Builder, Getters)]
 pub struct MeshBasic {
@@ -15,4 +16,8 @@ impl MeshBasic {
   }
 }
 
-impl Material for MeshBasic {}
+impl WithMaterial for MeshBasic {
+  fn shader(&self) -> ShaderSource {
+    ShaderSource::Wgsl(include_str!("shaders/mesh_basic.wgsl").into())
+  }
+}
