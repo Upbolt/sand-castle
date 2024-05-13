@@ -1,6 +1,6 @@
 use derive_builder::Builder;
 use derive_getters::Getters;
-use wgpu::{ShaderModuleDescriptor, ShaderSource};
+use wgpu::ShaderSource;
 
 use super::WithMaterial;
 

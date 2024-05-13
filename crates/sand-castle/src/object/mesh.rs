@@ -1,18 +1,15 @@
-use derive_builder::Builder;
 use wgpu::{
   util::{BufferInitDescriptor, DeviceExt},
-  BlendState, Buffer, BufferUsages, Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor,
-  Face, FragmentState, FrontFace, IndexFormat, LoadOp, MultisampleState, Operations,
-  PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
-  PrimitiveTopology, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-  RenderPipelineDescriptor, ShaderModuleDescriptor, StoreOp, TextureFormat, TextureViewDescriptor,
-  VertexState,
+  BlendState, Buffer, BufferUsages, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
+  IndexFormat, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode,
+  PrimitiveState, PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor,
+  ShaderModuleDescriptor, VertexState,
 };
 
 use crate::{
-  geometry::{Geometry, VerticesLayout, WithGeometry},
-  material::{Material, WithMaterial},
-  renderer::{GpuCommand, Render, RenderPass, Renderer},
+  geometry::WithGeometry,
+  material::WithMaterial,
+  renderer::{Render, RenderPass, Renderer},
 };
 
 use derive_more::{From, Into};
@@ -136,7 +133,7 @@ impl Render for Mesh {
     0
   }
 
-  fn render<'a, 'b: 'a>(&'b self, renderer: &'a Renderer, render_pass: &'a mut RenderPass<'b>) {
+  fn render<'a, 'b: 'a>(&'b self, _: &'a Renderer, render_pass: &'a mut RenderPass<'b>) {
     render_pass.set_pipeline(&self.pipeline);
     render_pass.set_vertex_buffer(0, self.vertex_buffer.0.slice(..));
     render_pass.set_index_buffer(self.index_buffer.0.slice(..), IndexFormat::Uint32);
