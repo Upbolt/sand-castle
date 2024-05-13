@@ -1,6 +1,6 @@
 use derive_builder::Builder;
 use derive_getters::Getters;
-use wgpu::{ShaderSource, VertexAttribute, VertexBufferLayout, VertexStepMode};
+use wgpu::{BufferAddress, ShaderSource, VertexAttribute, VertexBufferLayout, VertexStepMode};
 
 use crate::units::{Color, Vector3, Vertex};
 
@@ -29,14 +29,21 @@ impl Cuboid {
 }
 
 impl WithGeometry for Cuboid {
-  fn vertices_layout() -> VerticesLayout {
-    const ATTRIBUTES: [VertexAttribute; 2] =
-      wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+  fn name() -> &'static str {
+    "cuboid"
+  }
+
+  fn vertices_layout<'a>() -> VerticesLayout<'a> {
+    // const ATTRIBUTES: [VertexAttribute; 1] = wgpu::vertex_attr_array![0 => Float32x3];
 
     VertexBufferLayout {
-      array_stride: std::mem::size_of::<Vertex> as u64,
+      array_stride: std::mem::size_of::<Vertex> as BufferAddress,
       step_mode: VertexStepMode::Vertex,
-      attributes: &ATTRIBUTES,
+      attributes: &[wgpu::VertexAttribute {
+        offset: 0,
+        shader_location: 0,
+        format: wgpu::VertexFormat::Float32x3,
+      }],
     }
     .into()
   }
@@ -63,11 +70,6 @@ impl WithGeometry for Cuboid {
               x: x as f32 * width_ratio,
               y: y as f32 * height_ratio,
               z: z as f32 * depth_ratio,
-            },
-            color: Color {
-              r: 0.1,
-              g: 0.2,
-              b: 0.3,
             },
           });
         }

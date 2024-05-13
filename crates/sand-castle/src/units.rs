@@ -1,7 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
-#[repr(align(4))]
 #[derive(Default, Clone, Copy, Pod, Zeroable)]
 pub struct Vector3 {
   pub x: f32,
@@ -17,7 +16,6 @@ pub struct ModelVertex {
 }
 
 #[repr(C)]
-#[repr(align(4))]
 #[derive(Default, Clone, Copy, Pod, Zeroable)]
 pub struct Color {
   pub r: f32,
@@ -29,7 +27,6 @@ pub struct Color {
 #[derive(Default, Clone, Copy, Pod, Zeroable)]
 pub struct Vertex {
   pub position: Vector3,
-  pub color: Color,
 }
 
 #[repr(C)]

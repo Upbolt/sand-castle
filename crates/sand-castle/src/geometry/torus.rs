@@ -27,7 +27,11 @@ impl Torus {
 }
 
 impl WithGeometry for Torus {
-  fn vertices_layout() -> VerticesLayout {
+  fn name() -> &'static str {
+    "torus"
+  }
+
+  fn vertices_layout<'a>() -> VerticesLayout<'a> {
     const ATTRIBUTES: [VertexAttribute; 2] =
       wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
 

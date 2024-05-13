@@ -9,7 +9,7 @@ use crate::units::Vertex;
 use derive_more::{From, Into};
 
 #[derive(From, Into)]
-pub struct VerticesLayout(VertexBufferLayout<'static>);
+pub struct VerticesLayout<'a>(VertexBufferLayout<'a>);
 
 #[derive(Getters)]
 pub struct Geometry<'a> {
@@ -24,7 +24,8 @@ pub trait WithGeometry
 where
   Self: Sized,
 {
-  fn vertices_layout() -> VerticesLayout;
+  fn name() -> &'static str;
+  fn vertices_layout<'a>() -> VerticesLayout<'a>;
   fn into_geometry<'a>(self) -> Geometry<'a>;
   // fn attributes(&self);
   // fn bounding_box(&self);

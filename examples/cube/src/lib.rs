@@ -69,24 +69,24 @@ async fn main() {
       .expect("could not build material")
   );
 
-  let torus = Mesh::new(
-    &renderer,
-    Torus::builder()
-      .radius(10.)
-      .tube(3.)
-      .radial_segments(16)
-      .arc(100.)
-      .build()
-      .expect("could not build torus"),
-    MeshBasic::builder()
-      .color(0xFF6347)
-      .wireframe(true)
-      .build()
-      .expect("could not build material"),
-  );
+  // let torus = Mesh::new(
+  //   &renderer,
+  //   Torus::builder()
+  //     .radius(10.)
+  //     .tube(3.)
+  //     .radial_segments(16)
+  //     .arc(100.)
+  //     .build()
+  //     .expect("could not build torus"),
+  //   MeshBasic::builder()
+  //     .color(0xFF6347)
+  //     .wireframe(true)
+  //     .build()
+  //     .expect("could not build material"),
+  // );
 
   scene.push(cube);
-  scene.push(torus);
+  // scene.push(torus);
 
   animation_loop(move || {
     renderer.render(&scene);

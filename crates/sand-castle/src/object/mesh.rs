@@ -10,6 +10,7 @@ use crate::{
   geometry::WithGeometry,
   material::WithMaterial,
   renderer::{Render, RenderPass, Renderer},
+  units::Vertex,
 };
 
 use derive_more::{From, Into};
@@ -84,12 +85,21 @@ impl Mesh {
       .device()
       .create_render_pipeline(&RenderPipelineDescriptor {
         vertex: VertexState {
-          buffers: &[G::vertices_layout().into()],
+          buffers: &[wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[wgpu::VertexAttribute {
+              offset: 0,
+              shader_location: 0,
+              format: wgpu::VertexFormat::Float32x3,
+            }],
+          }],
+          // buffers: &[G::vertices_layout().into()],
           module: &vertex_shader,
           entry_point: "vs_main",
           compilation_options: PipelineCompilationOptions::default(),
         },
-        label: None,
+        label: Some(G::name()),
         layout: Some(&pipeline_layout),
         primitive: PrimitiveState {
           topology: PrimitiveTopology::TriangleList,
