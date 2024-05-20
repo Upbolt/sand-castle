@@ -7,12 +7,10 @@ pub trait WithMaterial
 where
   Self: Sized,
 {
-  fn shader(&self) -> ShaderSource;
-
-  fn into_material(self) -> Material {
-    Material
-  }
+  fn into_material<'a>(self) -> Material<'a>;
 }
 
 #[derive(Clone)]
-pub struct Material;
+pub struct Material<'a> {
+  pub shader: ShaderSource<'a>,
+}

@@ -11,14 +11,13 @@ use derive_more::{From, Into};
 #[derive(From, Into)]
 pub struct VerticesLayout<'a>(VertexBufferLayout<'a>);
 
-#[derive(Getters)]
-pub struct Geometry<'a> {
-  shader: ShaderSource<'a>,
+#[derive(Clone, Getters)]
+pub struct Geometry {
   vertices: Vec<Vertex>,
   indices: Vec<u32>,
 }
 
-impl Geometry<'_> {}
+impl Geometry {}
 
 pub trait WithGeometry
 where
@@ -26,7 +25,7 @@ where
 {
   fn name() -> &'static str;
   fn vertices_layout<'a>() -> VerticesLayout<'a>;
-  fn into_geometry<'a>(self) -> Geometry<'a>;
+  fn into_geometry(self) -> Geometry;
   // fn attributes(&self);
   // fn bounding_box(&self);
   // fn bounding_sphere(&self);

@@ -48,7 +48,7 @@ impl WithGeometry for Cuboid {
     .into()
   }
 
-  fn into_geometry<'a>(self) -> Geometry<'a> {
+  fn into_geometry(self) -> Geometry {
     let (half_width, half_height, half_depth) =
       (self.width / 2., self.height / 2., self.depth / 2.);
 
@@ -109,11 +109,7 @@ impl WithGeometry for Cuboid {
       vertex.position.z -= half_depth;
     }
 
-    Geometry {
-      shader: ShaderSource::Wgsl(include_str!("shaders/cuboid.wgsl").into()),
-      vertices,
-      indices,
-    }
+    Geometry { vertices, indices }
   }
 }
 

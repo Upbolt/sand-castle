@@ -7,9 +7,9 @@ use wgpu::{
 };
 
 use crate::{
-  geometry::WithGeometry,
-  material::WithMaterial,
-  renderer::{Render, RenderPass, Renderer},
+  geometry::{Geometry, WithGeometry},
+  material::{Material, WithMaterial},
+  renderer::{Render, RenderOptions, RenderPass, Renderer},
   units::Vertex,
 };
 
@@ -26,7 +26,6 @@ pub struct Pipeline(RenderPipeline);
 
 pub struct Mesh {
   vertex_buffer: VertexBuffer,
-  pipeline: RenderPipeline,
   index_buffer: IndexBuffer,
   indices: usize,
 }
@@ -37,7 +36,10 @@ impl Mesh {
     geometry: G,
     material: impl WithMaterial,
   ) -> Self {
-    let geometry = geometry.into_geometry();
+    Self::from_parts(renderer, geometry.into_geometry(), material.into_material())
+  }
+
+  pub fn from_parts(renderer: &Renderer, geometry: Geometry, material: Material) -> Self {
     let indices = geometry.indices();
     let indices_len = indices.len();
 
@@ -59,78 +61,7 @@ impl Mesh {
       })
       .into();
 
-    let pipeline_layout = renderer
-      .device()
-      .create_pipeline_layout(&PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[],
-        push_constant_ranges: &[],
-      });
-
-    let vertex_shader = renderer
-      .device()
-      .create_shader_module(ShaderModuleDescriptor {
-        label: Some("Mesh Vertex Shader"),
-        source: geometry.shader().clone(),
-      });
-
-    let fragment_shader = renderer
-      .device()
-      .create_shader_module(ShaderModuleDescriptor {
-        label: Some("Mesh Fragment Shader"),
-        source: material.shader(),
-      });
-
-    let pipeline = renderer
-      .device()
-      .create_render_pipeline(&RenderPipelineDescriptor {
-        vertex: VertexState {
-          buffers: &[wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[wgpu::VertexAttribute {
-              offset: 0,
-              shader_location: 0,
-              format: wgpu::VertexFormat::Float32x3,
-            }],
-          }],
-          // buffers: &[G::vertices_layout().into()],
-          module: &vertex_shader,
-          entry_point: "vs_main",
-          compilation_options: PipelineCompilationOptions::default(),
-        },
-        label: Some(G::name()),
-        layout: Some(&pipeline_layout),
-        primitive: PrimitiveState {
-          topology: PrimitiveTopology::TriangleList,
-          strip_index_format: None,
-          front_face: FrontFace::Ccw,
-          cull_mode: Some(Face::Back),
-          unclipped_depth: false,
-          polygon_mode: PolygonMode::Fill,
-          conservative: false,
-        },
-        depth_stencil: None,
-        multisample: MultisampleState {
-          count: 1,
-          mask: !0,
-          alpha_to_coverage_enabled: false,
-        },
-        fragment: Some(FragmentState {
-          module: &fragment_shader,
-          entry_point: "fs_main",
-          compilation_options: PipelineCompilationOptions::default(),
-          targets: &[Some(ColorTargetState {
-            format: renderer.surface_config().format,
-            blend: Some(BlendState::REPLACE),
-            write_mask: ColorWrites::ALL,
-          })],
-        }),
-        multiview: None,
-      });
-
     Self {
-      pipeline,
       vertex_buffer,
       index_buffer,
       indices: indices_len,
@@ -143,8 +74,19 @@ impl Render for Mesh {
     0
   }
 
-  fn render<'a, 'b: 'a>(&'b self, _: &'a Renderer, render_pass: &'a mut RenderPass<'b>) {
-    render_pass.set_pipeline(&self.pipeline);
+  fn render<'a, 'b: 'a>(&'b self, options: RenderOptions<'a, 'b>) {
+    let RenderOptions {
+      render_pass,
+      camera,
+      ..
+    } = options;
+
+    render_pass.set_pipeline(&options.pipeline);
+
+    if let Some(camera) = camera {
+      render_pass.set_bind_group(0, camera.bind_group(), &[]);
+    }
+
     render_pass.set_vertex_buffer(0, self.vertex_buffer.0.slice(..));
     render_pass.set_index_buffer(self.index_buffer.0.slice(..), IndexFormat::Uint32);
     render_pass.draw_indexed(0..self.indices as u32, 0, 0..1);

@@ -43,9 +43,8 @@ impl WithGeometry for Torus {
     .into()
   }
 
-  fn into_geometry<'a>(self) -> Geometry<'a> {
+  fn into_geometry(self) -> Geometry {
     Geometry {
-      shader: ShaderSource::Wgsl(include_str!("shaders/torus.wgsl").into()),
       vertices: vec![],
       indices: vec![],
     }

@@ -1,8 +1,9 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use leptos::*;
 use leptos_use::{use_raf_fn, use_resize_observer, utils::Pausable};
 use sand_castle::{
+  camera::Camera,
   renderer::{Driver, Renderer},
   scene::Scene,
 };
@@ -11,11 +12,13 @@ use web_sys::{window, HtmlCanvasElement};
 
 #[derive(Clone)]
 pub struct CanvasContextValue {
-  renderer: Signal<Option<Rc<Renderer>>>,
-  scene: Signal<Rc<Scene>>,
+  pub(crate) renderer: Signal<Option<Rc<RefCell<Renderer>>>>,
+  pub(crate) scene: Signal<Rc<Scene>>,
 }
 
-async fn create_renderer(ctx: Option<(HtmlCanvasElement, Driver)>) -> Option<Rc<Renderer>> {
+async fn create_renderer(
+  ctx: Option<(HtmlCanvasElement, Driver)>,
+) -> Option<Rc<RefCell<Renderer>>> {
   let (node, driver) = ctx?;
   let canvas = node.dyn_ref::<HtmlCanvasElement>()?;
   let window = window()?;
@@ -29,17 +32,18 @@ async fn create_renderer(ctx: Option<(HtmlCanvasElement, Driver)>) -> Option<Rc<
     .await
     .expect("could not build renderer");
 
-  Some(Rc::new(new_renderer))
+  Some(Rc::new(RefCell::new(new_renderer)))
 }
 
 #[component]
 pub fn Canvas(
   #[prop(optional)] driver: MaybeSignal<sand_castle::renderer::Driver>,
   #[prop(optional)] node_ref: NodeRef<html::Canvas>,
-  #[prop(optional)] children: Option<Children>,
+  children: ChildrenFn,
   #[prop(attrs)] attrs: Vec<(&'static str, Attribute)>,
 ) -> impl IntoView {
   let (scene, set_scene) = create_signal(Rc::new(Scene::new()));
+  let (camera, set_camera) = create_signal::<Option<Rc<Camera>>>(None);
   let renderer_resource = create_local_resource(
     move || {
       let node = node_ref.get()?;
@@ -49,6 +53,7 @@ pub fn Canvas(
     },
     create_renderer,
   );
+
   let renderer = Signal::derive(move || renderer_resource.get().flatten());
 
   Effect::new(move |_| {
@@ -57,7 +62,10 @@ pub fn Canvas(
         return;
       };
 
-      renderer.render(scene.get().as_ref());
+      renderer.borrow_mut().render(
+        scene.get().as_ref(),
+        camera.get().as_ref().map(|camera| &**camera),
+      );
     });
 
     on_cleanup(move || {
@@ -72,7 +80,9 @@ pub fn Canvas(
 
     let rect = entry.content_rect();
 
-    renderer.resize((rect.width() as u32, rect.height() as u32));
+    renderer
+      .borrow_mut()
+      .resize((rect.width() as u32, rect.height() as u32));
   });
 
   provide_context(CanvasContextValue {
@@ -80,11 +90,16 @@ pub fn Canvas(
     scene: scene.into(),
   });
 
+  let children = StoredValue::new(children);
+
   view! {
     <canvas
       {..attrs}
       node_ref=node_ref
     />
-    {children.map(|children| children())}
+
+    <Show when=move || renderer.get().is_some()>
+      {children.with_value(|children| children())}
+    </Show>
   }
 }
