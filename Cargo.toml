@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/sand-castle", "crates/leptos-sand-castle", "examples/cube-leptos"]
+members = ["crates/sand-castle-core", "crates/sand-castle-leptos"]
 exclude = ["examples"]
 
 [workspace.package]

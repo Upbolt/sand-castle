@@ -1,0 +1,8 @@
+[package]
+name = "leptos-cube"
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+leptos = { version = "0.6.13", features = ["csr"] }
+wasm-bindgen = "0.2.92"
+sand-castle-leptos = { path = "../../crates/sand-castle-leptos" }
