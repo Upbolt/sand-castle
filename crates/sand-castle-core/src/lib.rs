@@ -1,4 +1,4 @@
-pub use glam::{Quat, Vec3, Vec4};
+pub use glam::{Quat, Vec2, Vec3, Vec4};
 
 pub mod renderer;
 pub mod resource;

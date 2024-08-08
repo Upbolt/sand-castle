@@ -21,7 +21,7 @@ pub fn Cuboid(
   let SceneContextValue { scene, renderer } =
     use_context().expect("`Cuboid` must be used in a `Scene` component");
 
-  let MeshContextValue { mesh } =
+  let MeshContextValue { geometry, .. } =
     use_context().expect("`Cuboid` must be used in a `Mesh` component");
 
   Effect::new(move |_| {
@@ -38,24 +38,14 @@ pub fn Cuboid(
   });
 
   Effect::new(move |_| {
-    let (Some(geometry), Some(renderer)) = (
+    let (Some(cuboid_geometry), Some(renderer)) = (
       cuboid.with(|cuboid| cuboid.as_ref().map(|cuboid| cuboid.to_geometry())),
       renderer.get(),
     ) else {
       return;
     };
 
-    mesh.update(|mesh| {
-      let Some(mesh) = mesh else {
-        return;
-      };
-
-      scene.update(|scene| {
-        if let Some(scene) = scene {
-          scene.update_geometry(&renderer, mesh, geometry);
-        }
-      });
-    });
+    geometry.set(Some(cuboid_geometry));
   });
 
   view! {}

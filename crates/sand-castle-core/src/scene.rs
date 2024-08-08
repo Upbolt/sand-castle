@@ -363,9 +363,9 @@ impl Scene {
     renderer.queue().write_buffer(
       transform,
       0,
-      bytemuck::cast_slice(&[
-        Mat4::from_translation(resource.pos().clone()) * Mat4::from_quat(resource.rot().clone())
-      ]),
+      bytemuck::cast_slice(
+        &[Mat4::from_translation(resource.pos().clone()) * Mat4::from_quat(rot)],
+      ),
     );
   }
 
@@ -388,9 +388,9 @@ impl Scene {
     renderer.queue().write_buffer(
       transform,
       0,
-      bytemuck::cast_slice(&[
-        Mat4::from_translation(resource.pos().clone()) * Mat4::from_quat(resource.rot().clone())
-      ]),
+      bytemuck::cast_slice(
+        &[Mat4::from_translation(pos) * Mat4::from_quat(resource.rot().clone())],
+      ),
     );
   }
 

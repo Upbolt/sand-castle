@@ -2,6 +2,8 @@ use leptos::*;
 
 use sand_castle_core::{
   resource::{
+    geometry::Geometry,
+    lighting::material::Material,
     object_3d::{mesh::Mesh as CoreMesh, Scale},
     Resource,
   },
@@ -13,6 +15,8 @@ use crate::scene::SceneContextValue;
 #[derive(Clone)]
 pub struct MeshContextValue {
   pub mesh: RwSignal<Option<CoreMesh>>,
+  pub geometry: RwSignal<Option<Geometry>>,
+  pub material: RwSignal<Option<Material>>,
 }
 
 #[component]
@@ -24,6 +28,9 @@ pub fn Mesh(
   children: Children,
 ) -> impl IntoView {
   let mesh = RwSignal::<Option<CoreMesh>>::new(None);
+
+  let geometry = RwSignal::<Option<Geometry>>::new(None);
+  let material = RwSignal::<Option<Material>>::new(None);
 
   let SceneContextValue { scene, renderer } =
     use_context().expect("`Mesh` must be used in a `Scene` component");
@@ -53,10 +60,16 @@ pub fn Mesh(
   });
 
   Effect::new(move |_| {
-    mesh.with(|mesh| {
-      mesh.as_ref().map(|mesh| {
-        logging::log!("{:#?}", mesh.geometry());
-      })
+    let (Some(geometry), Some(renderer)) = (geometry.get(), renderer.get()) else {
+      return;
+    };
+
+    scene.update_untracked(|scene| {
+      mesh.update_untracked(|mesh| {
+        if let (Some(scene), Some(mesh)) = (scene, mesh) {
+          scene.update_geometry(&renderer, mesh, geometry);
+        }
+      });
     });
   });
 
@@ -88,11 +101,11 @@ pub fn Mesh(
         return;
       };
 
-      // scene.with(|scene| {
-      //   if let Some(scene) = scene {
-      //     scene.transform_rot(&renderer, mesh, rotation);
-      //   }
-      // });
+      scene.with(|scene| {
+        if let Some(scene) = scene {
+          scene.transform_rot(&renderer, mesh, rotation);
+        }
+      });
     });
   });
 
@@ -106,7 +119,7 @@ pub fn Mesh(
         return;
       };
 
-      scene.with(|scene| {
+      scene.with_untracked(|scene| {
         if let Some(scene) = scene {
           scene.transform_scale(&renderer, mesh, scale);
         }
@@ -128,7 +141,11 @@ pub fn Mesh(
     });
   });
 
-  provide_context(MeshContextValue { mesh });
+  provide_context(MeshContextValue {
+    mesh,
+    geometry,
+    material,
+  });
 
   children().into_view()
 }

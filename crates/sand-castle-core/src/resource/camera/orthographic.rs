@@ -1,6 +1,6 @@
 use derive_builder::Builder;
 use derive_getters::Getters;
-use glam::{Mat4, Quat, Vec3, Vec4};
+use glam::{Mat4, Quat, Vec2, Vec3, Vec4};
 
 use crate::resource::{
   object_3d::{Scale, Transform},
@@ -18,6 +18,8 @@ pub struct OrthographicCamera {
 
   yaw: f32,
   pitch: f32,
+
+  screen_size: Vec2,
 
   #[builder(default = "Default::default()")]
   view_frustum: ViewFrustum,
@@ -54,6 +56,14 @@ impl Camera for OrthographicCamera {
     let (sin_yaw, cos_yaw) = self.yaw.sin_cos();
 
     OPENGL_TO_WGPU_MATRIX
+      * Mat4::orthographic_lh(
+        0.0,
+        self.screen_size.x,
+        self.screen_size.y,
+        0.0,
+        self.view_frustum.near,
+        self.view_frustum.far,
+      )
       * Mat4::look_to_rh(
         self.position,
         Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),

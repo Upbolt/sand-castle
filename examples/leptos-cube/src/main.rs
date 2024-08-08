@@ -20,12 +20,10 @@ use sand_castle_leptos::{
     mesh::Mesh,
   },
   scene::Scene,
-  Quat, Vec3, Vec4,
+  Quat, Vec2, Vec3, Vec4,
 };
 
-use wasm_bindgen::prelude::*;
-
-use leptos_use::{use_document, use_event_listener, use_window};
+use leptos_use::{use_document, use_event_listener, use_interval_fn, use_window};
 
 fn main() {
   console_error_panic_hook::set_once();
@@ -51,7 +49,9 @@ fn App() -> impl IntoView {
   let left = RwSignal::new(false);
   let right = RwSignal::new(false);
 
-  let cube_rotation = RwSignal::new(Quat::default());
+  let cube_pos = RwSignal::new(Vec3::default());
+  let cube_rot = RwSignal::new(Quat::default());
+  let cube_rot_angle = RwSignal::new(0.0f32);
 
   let canvas = NodeRef::<Canvas>::new();
 
@@ -266,6 +266,26 @@ fn App() -> impl IntoView {
     return coords;
   });
 
+  use_interval_fn(
+    move || {
+      cube_rot.update(|rot| {
+        if cube_pos.get_untracked().length() == 0.0 {
+          *rot = Quat::from_axis_angle(Vec3::Y, cube_rot_angle.get_untracked().to_radians());
+        } else {
+          *rot = Quat::from_axis_angle(
+            cube_pos.get().normalize(),
+            cube_rot_angle.get_untracked().to_radians(),
+          );
+        }
+      });
+
+      cube_rot_angle.update(|angle| {
+        *angle = (*angle + 1.0) % 360.0;
+      });
+    },
+    1,
+  );
+
   view! {
       <h1 attr:style="margin-bottom: 0.125rem">"sand-castle leptos"</h1>
 
@@ -281,8 +301,16 @@ fn App() -> impl IntoView {
             pitch=pitch
           />
 
+          // <OrthographicCamera
+          //   screen_size=Vec2::new(300.0, 150.0)
+          //   position=camera_pos
+          //   yaw=yaw
+          //   pitch=pitch
+          // />
+
           <Mesh
-            rotation=cube_rotation
+            rotation=cube_rot
+            position=cube_pos
           >
             <Cuboid />
             <BasicMaterial />
@@ -294,15 +322,23 @@ fn App() -> impl IntoView {
         <h2 style="margin-bottom: 0.25rem">"camera"</h2>
 
         <div>
-          <button on:click=move |_| yaw.update(|yaw| { *yaw += 0.1; })>"+"</button>
-          <button on:click=move |_| yaw.update(|yaw| { *yaw -= 0.1; })>"-"</button>
           <span>{move || format!("yaw: {}", yaw.get())}</span>
         </div>
 
         <div>
-          <button on:click=move |_| pitch.update(|pitch| { *pitch += 0.1; })>"+"</button>
-          <button on:click=move |_| pitch.update(|pitch| { *pitch -= 0.1; })>"-"</button>
           <span>{move || format!("pitch: {}", pitch.get())}</span>
+        </div>
+
+        <div>
+          <span>{move || format!("position: {:?}", camera_pos.get())}</span>
+        </div>
+      </div>
+
+      <div>
+        <h2 style="margin-bottom: 0.25rem">"cube"</h2>
+
+        <div>
+          <span>{move || format!("rotation (y): {}°", cube_rot_angle.get())}</span>
         </div>
       </div>
     }
