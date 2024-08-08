@@ -76,6 +76,10 @@ impl Scene {
     Default::default()
   }
 
+  pub fn subject_count(&self) -> usize {
+    self.subjects.len()
+  }
+
   pub fn set_color(&mut self, color: Vec4) {
     self.color = color;
   }
@@ -464,5 +468,37 @@ impl Scene {
 
   pub fn update_material(&mut self, resource: &mut (impl Resource + Object3D), material: Material) {
     resource.set_material(material);
+  }
+
+  pub fn update_geometry(
+    &mut self,
+    renderer: &Renderer,
+    resource: &mut (impl Resource + Object3D),
+    geometry: Geometry,
+  ) {
+    let vertices = (
+      renderer.device().create_buffer_init(&BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(geometry.vertices()),
+        usage: BufferUsages::VERTEX,
+      }),
+      geometry.vertices().len(),
+    );
+
+    let indices = (
+      renderer.device().create_buffer_init(&BufferInitDescriptor {
+        label: None,
+        contents: bytemuck::cast_slice(geometry.indices()),
+        usage: BufferUsages::INDEX,
+      }),
+      geometry.indices().len(),
+    );
+
+    if let Some(subject) = self.subjects.get_mut(&resource.id()) {
+      subject.indices = indices;
+      subject.vertices = vertices;
+    }
+
+    resource.set_geometry(geometry);
   }
 }

@@ -2,10 +2,9 @@ use std::sync::Arc;
 
 use leptos::*;
 use leptos_use::{use_raf_fn, use_resize_observer, utils::Pausable};
-use sand_castle_core::{
-  renderer::{Backend, Renderer},
-  scene::Scene as CoreScene,
-};
+use sand_castle_core::{renderer::Renderer, scene::Scene as CoreScene};
+
+pub use sand_castle_core::renderer::Backend;
 
 use std::ops::Deref;
 
@@ -17,7 +16,7 @@ pub struct RendererContextValue {
 
 #[component]
 pub fn Canvas(
-  #[prop(optional)] backend: MaybeProp<Backend>,
+  #[prop(optional, into)] backend: MaybeProp<Backend>,
 
   #[prop(attrs)] attrs: Vec<(&'static str, Attribute)>,
   #[prop(optional)] node_ref: NodeRef<html::Canvas>,

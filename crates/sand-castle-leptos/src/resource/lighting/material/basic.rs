@@ -21,15 +21,15 @@ pub fn BasicMaterial(#[prop(default = 0x000000FF.into())] color: MaybeProp<u32>)
     if material.with(|material| material.is_none()) {
       let basic_material = CoreBasicMaterial::with_color(color.get().unwrap());
 
-      mesh.update(|mesh| {
-        if let Some(mesh) = mesh {
-          scene.update(|scene| {
-            if let Some(scene) = scene {
-              scene.update_material(mesh, basic_material.to_material());
-            }
-          });
-        }
-      });
+      // mesh.update(|mesh| {
+      //   if let Some(mesh) = mesh {
+      //     scene.update(|scene| {
+      //       if let Some(scene) = scene {
+      //         scene.update_material(mesh, basic_material.to_material());
+      //       }
+      //     });
+      //   }
+      // });
 
       material.set(Some(basic_material));
     }

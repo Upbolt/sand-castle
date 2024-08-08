@@ -14,8 +14,6 @@ use crate::scene::SceneContextValue;
 pub fn OrthographicCamera(
   #[prop(optional, into)] yaw: MaybeProp<f32>,
   #[prop(optional, into)] pitch: MaybeProp<f32>,
-  #[prop(default=70.0.into(), into)] fov: MaybeSignal<f32>,
-  #[prop(into)] aspect_ratio: MaybeSignal<f32>,
   #[prop(optional, into)] position: MaybeProp<Vec3>,
   #[prop(optional, into)] rotation: MaybeProp<Quat>,
   #[prop(optional, into)] scale: MaybeProp<Scale>,
@@ -30,8 +28,6 @@ pub fn OrthographicCamera(
       let orthographic_camera = CoreOrthographicCamera::builder()
         .yaw(yaw.get().unwrap_or_default())
         .pitch(pitch.get().unwrap_or_default())
-        .fov(fov.get())
-        .aspect_ratio(aspect_ratio.get())
         .position(position.get().unwrap_or_default())
         .rotation(rotation.get().unwrap_or_default())
         .scale(scale.get().unwrap_or_default())

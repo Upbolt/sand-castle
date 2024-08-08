@@ -1,7 +1,10 @@
 use leptos::*;
 
 use sand_castle_core::{
-  resource::object_3d::{mesh::Mesh as CoreMesh, Scale},
+  resource::{
+    object_3d::{mesh::Mesh as CoreMesh, Scale},
+    Resource,
+  },
   Quat, Vec3,
 };
 
@@ -30,34 +33,30 @@ pub fn Mesh(
   let scale = Memo::new(move |_| scale.get());
 
   Effect::new(move |_| {
-    if mesh.with(|mesh| mesh.is_none()) {
-      mesh.set(Some(
-        CoreMesh::builder()
-          .position(position.get().unwrap_or_default())
-          .rotation(rotation.get().unwrap_or_default())
-          .scale(scale.get().unwrap_or_default())
-          .build(),
-      ));
-    }
-  });
-
-  Effect::new(move |_| {
     let Some(renderer) = renderer.get() else {
       return;
     };
 
-    // _ = scene.with(|scene| ());
+    let mesh_desc = CoreMesh::builder()
+      .position(position.get_untracked().unwrap_or_default())
+      .rotation(rotation.get_untracked().unwrap_or_default())
+      .scale(scale.get_untracked().unwrap_or_default())
+      .build();
 
+    scene.update(|scene| {
+      if let Some(scene) = scene {
+        scene.insert(&renderer, &mesh_desc);
+      }
+    });
+
+    mesh.set(Some(mesh_desc));
+  });
+
+  Effect::new(move |_| {
     mesh.with(|mesh| {
-      let Some(mesh) = mesh else {
-        return;
-      };
-
-      scene.update(|scene| {
-        if let Some(scene) = scene {
-          scene.insert(&renderer, mesh);
-        }
-      });
+      mesh.as_ref().map(|mesh| {
+        logging::log!("{:#?}", mesh.geometry());
+      })
     });
   });
 
@@ -66,7 +65,7 @@ pub fn Mesh(
       return;
     };
 
-    mesh.update(|mesh| {
+    mesh.update_untracked(|mesh| {
       let Some(mesh) = mesh else {
         return;
       };
@@ -84,16 +83,16 @@ pub fn Mesh(
       return;
     };
 
-    mesh.update(|mesh| {
+    mesh.update_untracked(|mesh| {
       let Some(mesh) = mesh else {
         return;
       };
 
-      scene.with(|scene| {
-        if let Some(scene) = scene {
-          scene.transform_rot(&renderer, mesh, rotation);
-        }
-      });
+      // scene.with(|scene| {
+      //   if let Some(scene) = scene {
+      //     scene.transform_rot(&renderer, mesh, rotation);
+      //   }
+      // });
     });
   });
 
@@ -102,7 +101,7 @@ pub fn Mesh(
       return;
     };
 
-    mesh.update(|mesh| {
+    mesh.update_untracked(|mesh| {
       let Some(mesh) = mesh else {
         return;
       };

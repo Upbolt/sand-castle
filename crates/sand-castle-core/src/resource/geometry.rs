@@ -4,7 +4,7 @@ use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, Ver
 
 pub mod cuboid;
 
-#[derive(Getters, Default, Clone)]
+#[derive(Getters, Default, Clone, Debug)]
 pub struct Geometry {
   pub(crate) vertices: Vec<Vec3>,
   pub(crate) indices: Vec<u32>,

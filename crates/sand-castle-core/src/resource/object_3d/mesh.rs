@@ -5,7 +5,7 @@ use glam::{Quat, Vec3};
 use super::{Object3D, Scale, Transform};
 use crate::resource::{geometry::Geometry, lighting::material::Material, Id, Resource};
 
-#[derive(Getters, Builder)]
+#[derive(Debug, Getters, Builder)]
 #[builder(pattern = "owned", build_fn(private, name = "fallible_build"))]
 pub struct Mesh {
   #[builder(setter(skip))]

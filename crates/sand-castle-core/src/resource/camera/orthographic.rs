@@ -1,13 +1,13 @@
 use derive_builder::Builder;
 use derive_getters::Getters;
-use glam::{Mat4, Quat, Vec3};
+use glam::{Mat4, Quat, Vec3, Vec4};
 
 use crate::resource::{
   object_3d::{Scale, Transform},
   Id, Resource,
 };
 
-use super::Camera;
+use super::{Camera, ViewFrustum};
 
 #[derive(Getters, Builder)]
 #[builder(pattern = "owned", build_fn(private, name = "fallible_build"))]
@@ -19,9 +19,8 @@ pub struct OrthographicCamera {
   yaw: f32,
   pitch: f32,
 
-  #[builder(default = "70.0")]
-  fov: f32,
-  aspect_ratio: f32,
+  #[builder(default = "Default::default()")]
+  view_frustum: ViewFrustum,
 
   position: Vec3,
   rotation: Quat,
@@ -42,16 +41,24 @@ impl OrthographicCamera {
   }
 }
 
+pub const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::from_cols(
+  Vec4::new(1.0, 0.0, 0.0, 0.0),
+  Vec4::new(0.0, 1.0, 0.0, 0.0),
+  Vec4::new(0.0, 0.0, 0.5, 0.5),
+  Vec4::new(0.0, 0.0, 0.0, 1.0),
+);
+
 impl Camera for OrthographicCamera {
   fn to_matrix(&self) -> Mat4 {
     let (sin_pitch, cos_pitch) = self.pitch.sin_cos();
     let (sin_yaw, cos_yaw) = self.yaw.sin_cos();
 
-    Mat4::look_to_rh(
-      self.position,
-      Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
-      Vec3::Y,
-    )
+    OPENGL_TO_WGPU_MATRIX
+      * Mat4::look_to_rh(
+        self.position,
+        Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
+        Vec3::Y,
+      )
   }
 }
 

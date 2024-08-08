@@ -6,7 +6,7 @@ pub mod object_3d;
 use derive_more::{Deref, From};
 use uuid::Uuid;
 
-#[derive(Deref, From, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, Deref, From, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Id(u128);
 
 impl Id {

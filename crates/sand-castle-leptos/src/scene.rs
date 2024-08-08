@@ -25,18 +25,26 @@ pub fn Scene(
   provide_context(SceneContextValue { scene, renderer });
 
   Effect::new(move |_| {
-    if scene.with(|scene| scene.is_none()) {
+    logging::log!(
+      "{:?}",
+      scene.with(|scene| scene.as_ref().map(|scene| scene.subject_count()))
+    );
+  });
+
+  Effect::new(move |_| {
+    scene.update(|scene| {
       let scene_builder = CoreScene::builder();
 
-      let scene_builder = if let Some(color) = color.get() {
+      let scene_builder = if let Some(color) = color.get_untracked() {
         scene_builder.color(color)
       } else {
         scene_builder
       };
 
-      scene.set(Some(scene_builder.build()));
-      scenes.update(|scenes| scenes.push(scene));
-    }
+      *scene = Some(scene_builder.build());
+    });
+
+    scenes.update(|scenes| scenes.push(scene));
   });
 
   Effect::new(move |_| {

@@ -3,7 +3,7 @@ use leptos::*;
 pub use sand_castle_core::{
   resource::{
     camera::{perspective::PerspectiveCamera as CorePerspectiveCamera, ViewFrustum},
-    object_3d::Scale,
+    object_3d::{Scale, Transform},
   },
   Quat, Vec3,
 };
@@ -28,6 +28,7 @@ pub fn PerspectiveCamera(
 
   let yaw = Memo::new(move |_| yaw.get());
   let pitch = Memo::new(move |_| pitch.get());
+  let position = Memo::new(move |_| position.get());
 
   Effect::new(move |_| {
     if camera.with(|camera| camera.is_none()) {
@@ -87,6 +88,26 @@ pub fn PerspectiveCamera(
       };
 
       camera.set_pitch(pitch);
+
+      scene.with(|scene| {
+        if let Some(scene) = scene {
+          scene.update_camera(&renderer, camera);
+        }
+      });
+    });
+  });
+
+  Effect::new(move |_| {
+    let (Some(position), Some(renderer)) = (position.get(), renderer.get()) else {
+      return;
+    };
+
+    camera.update(|camera| {
+      let Some(camera) = camera else {
+        return;
+      };
+
+      camera.set_pos(position);
 
       scene.with(|scene| {
         if let Some(scene) = scene {

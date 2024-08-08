@@ -6,7 +6,7 @@ use crate::resource::{Id, Resource};
 pub mod basic;
 pub mod shader;
 
-#[derive(Getters, Default)]
+#[derive(Getters, Default, Debug)]
 pub struct Material {
   pub(crate) id: Id,
   pub(crate) shader: Option<ShaderModuleDescriptor<'static>>,

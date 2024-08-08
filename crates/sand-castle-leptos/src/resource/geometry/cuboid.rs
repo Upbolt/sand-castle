@@ -5,7 +5,7 @@ use sand_castle_core::resource::{
   object_3d::Object3D,
 };
 
-use crate::resource::mesh::MeshContextValue;
+use crate::{resource::mesh::MeshContextValue, scene::SceneContextValue};
 
 #[component]
 pub fn Cuboid(
@@ -18,34 +18,43 @@ pub fn Cuboid(
 ) -> impl IntoView {
   let cuboid = RwSignal::<Option<CoreCuboid>>::new(None);
 
+  let SceneContextValue { scene, renderer } =
+    use_context().expect("`Cuboid` must be used in a `Scene` component");
+
   let MeshContextValue { mesh } =
     use_context().expect("`Cuboid` must be used in a `Mesh` component");
 
   Effect::new(move |_| {
-    if cuboid.with(|cuboid| cuboid.is_none()) {
-      cuboid.set(Some(
-        CoreCuboid::builder()
-          .width(width.get().unwrap())
-          .height(height.get().unwrap())
-          .depth(depth.get().unwrap())
-          .width_segments(width_segments.get().unwrap())
-          .height_segments(height_segments.get().unwrap())
-          .depth_segments(depth_segments.get().unwrap())
-          .build(),
-      ));
-    }
+    cuboid.set(Some(
+      CoreCuboid::builder()
+        .width(width.get_untracked().unwrap())
+        .height(height.get_untracked().unwrap())
+        .depth(depth.get_untracked().unwrap())
+        .width_segments(width_segments.get_untracked().unwrap())
+        .height_segments(height_segments.get_untracked().unwrap())
+        .depth_segments(depth_segments.get_untracked().unwrap())
+        .build(),
+    ));
   });
 
   Effect::new(move |_| {
-    let Some(geometry) = cuboid.with(|cuboid| cuboid.as_ref().map(|cuboid| cuboid.to_geometry()))
-    else {
+    let (Some(geometry), Some(renderer)) = (
+      cuboid.with(|cuboid| cuboid.as_ref().map(|cuboid| cuboid.to_geometry())),
+      renderer.get(),
+    ) else {
       return;
     };
 
     mesh.update(|mesh| {
-      if let Some(mesh) = mesh {
-        mesh.set_geometry(geometry);
-      }
+      let Some(mesh) = mesh else {
+        return;
+      };
+
+      scene.update(|scene| {
+        if let Some(scene) = scene {
+          scene.update_geometry(&renderer, mesh, geometry);
+        }
+      });
     });
   });
 
