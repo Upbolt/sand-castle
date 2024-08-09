@@ -24,7 +24,7 @@ impl Default for Scale {
 
 pub trait Object3D: Transform {
   fn geometry(&self) -> &Geometry;
-  fn material(&self) -> &Material;
+  fn material(&self) -> Option<&Material>;
 
   fn set_geometry(&mut self, geometry: Geometry);
   fn set_material(&mut self, material: Material);

@@ -14,8 +14,8 @@ pub struct Mesh {
 
   #[builder(default)]
   geometry: Geometry,
-  #[builder(default)]
-  material: Material,
+  #[builder(default, setter(strip_option))]
+  material: Option<Material>,
 
   #[getter(skip)]
   scale: Scale,
@@ -48,8 +48,8 @@ impl Object3D for Mesh {
     &self.geometry
   }
 
-  fn material(&self) -> &Material {
-    &self.material
+  fn material(&self) -> Option<&Material> {
+    self.material.as_ref()
   }
 
   fn set_geometry(&mut self, geometry: Geometry) {
@@ -57,7 +57,7 @@ impl Object3D for Mesh {
   }
 
   fn set_material(&mut self, material: Material) {
-    self.material = material;
+    self.material = Some(material);
   }
 }
 

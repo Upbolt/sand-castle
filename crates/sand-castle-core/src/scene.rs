@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{any::TypeId, sync::Arc};
 
 use derive_builder::Builder;
 use derive_getters::Getters;
@@ -12,7 +12,7 @@ use wgpu::{
   ColorTargetState, ColorWrites, Face, FragmentState, FrontFace, IndexFormat, LoadOp,
   MultisampleState, Operations, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
   PrimitiveTopology, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-  RenderPipelineDescriptor, ShaderStages, StoreOp, VertexState,
+  RenderPipelineDescriptor, ShaderModule, ShaderStages, StoreOp, VertexState,
 };
 
 use crate::{
@@ -20,17 +20,18 @@ use crate::{
   resource::{
     camera::Camera,
     geometry::Geometry,
-    lighting::material::Material,
+    lighting::material::{Material, ToMaterial},
     object_3d::{Object3D, Scale, Transform},
     Id, Resource,
   },
 };
 
 struct Subject {
+  material_data: Option<(Buffer, BindGroup)>,
   transform: (Buffer, BindGroup),
   vertices: (Buffer, usize),
   indices: (Buffer, usize),
-  pipeline: Arc<RenderPipeline>,
+  pipeline: Option<Arc<RenderPipeline>>,
 }
 
 #[derive(Getters, Builder)]
@@ -48,7 +49,15 @@ pub struct Scene {
 
   #[getter(skip)]
   #[builder(default = "Default::default()", setter(skip))]
-  material_pipelines: IndexMap<Id, Arc<RenderPipeline>>,
+  material_pipelines: IndexMap<TypeId, Arc<RenderPipeline>>,
+
+  #[getter(skip)]
+  #[builder(default = "Default::default()", setter(skip))]
+  material_shaders: IndexMap<TypeId, (ShaderModule, ShaderModule)>,
+
+  #[getter(skip)]
+  #[builder(default = "Default::default()", setter(skip))]
+  material_layouts: IndexMap<TypeId, BindGroupLayout>,
 
   #[getter(skip)]
   #[builder(default = "Default::default()", setter(skip))]
@@ -182,105 +191,113 @@ impl Scene {
       }],
     });
 
-    let vertex_shader = renderer
-      .device()
-      .create_shader_module(include_wgsl!("shaders/vertex.wgsl"));
-
-    let pipeline = self
-      .material_pipelines
-      .get(object.material().id())
-      .cloned()
-      .unwrap_or_else(|| {
-        let transform_layout =
-          renderer
-            .device()
-            .create_bind_group_layout(&BindGroupLayoutDescriptor {
-              label: None,
-              entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                  ty: BufferBindingType::Uniform,
-                  has_dynamic_offset: false,
-                  min_binding_size: None,
-                },
-                count: None,
-              }],
-            });
-
-        let pipeline_layout = renderer
-          .device()
-          .create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[&transform_layout, camera_layout],
-            push_constant_ranges: &[],
+    let (pipeline, material_data) = object
+      .material()
+      .map(|material| {
+        let fragment_data_layout = self
+          .material_layouts
+          .entry(material.shader_type().clone())
+          .or_insert_with(|| {
+            renderer
+              .device()
+              .create_bind_group_layout(material.fragment_data_layout())
           });
 
-        let target = [renderer.supported_format().map(|format| ColorTargetState {
-          format,
-          blend: Some(BlendState::REPLACE),
-          write_mask: ColorWrites::ALL,
-        })];
-
-        let fragment = object
-          .material()
-          .shader()
-          .as_ref()
-          .map(|shader| renderer.device().create_shader_module(shader.clone()));
-
-        let fragment = fragment.as_ref().map(|module| FragmentState {
-          module: &vertex_shader,
-          entry_point: "fs_main",
-          compilation_options: Default::default(),
-          targets: &target,
+        let fragment_data_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
+          label: None,
+          contents: &material.fragment_data(),
+          usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
 
-        let pipeline = Arc::new(renderer.device().create_render_pipeline(
-          &RenderPipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            vertex: VertexState {
-              module: &vertex_shader,
-              entry_point: "vs_main",
-              buffers: &[Geometry::vertex_desc()],
-              compilation_options: Default::default(),
-            },
-            primitive: PrimitiveState {
-              topology: PrimitiveTopology::TriangleList,
-              strip_index_format: None,
-              front_face: FrontFace::Ccw,
-              cull_mode: Some(Face::Back),
-              polygon_mode: PolygonMode::Fill,
-              unclipped_depth: false,
-              conservative: false,
-            },
-            depth_stencil: None,
-            multisample: MultisampleState {
-              count: 1,
-              mask: !0,
-              alpha_to_coverage_enabled: false,
-            },
-            fragment: Some(FragmentState {
-              module: &vertex_shader,
-              entry_point: "fs_main",
-              compilation_options: Default::default(),
-              targets: &target,
+        let fragment_data_bind_group = renderer.device().create_bind_group(&BindGroupDescriptor {
+          label: None,
+          layout: fragment_data_layout,
+          entries: &[BindGroupEntry {
+            binding: 0,
+            resource: fragment_data_buffer.as_entire_binding(),
+          }],
+        });
+
+        (
+          self
+            .material_pipelines
+            .get(material.shader_type())
+            .cloned()
+            .unwrap_or_else(|| {
+              let pipeline_layout =
+                renderer
+                  .device()
+                  .create_pipeline_layout(&PipelineLayoutDescriptor {
+                    label: None,
+                    bind_group_layouts: &[&transform_layout, camera_layout, fragment_data_layout],
+                    push_constant_ranges: &[],
+                  });
+
+              let target = [renderer.supported_format().map(|format| ColorTargetState {
+                format,
+                blend: Some(BlendState::REPLACE),
+                write_mask: ColorWrites::ALL,
+              })];
+
+              let vertex_shader = renderer
+                .device()
+                .create_shader_module(material.vertex_shader().clone());
+              let fragment_shader = renderer
+                .device()
+                .create_shader_module(material.fragment_shader().clone());
+
+              let pipeline = Arc::new(renderer.device().create_render_pipeline(
+                &RenderPipelineDescriptor {
+                  label: None,
+                  layout: Some(&pipeline_layout),
+                  vertex: VertexState {
+                    module: &vertex_shader,
+                    entry_point: "vs_main",
+                    buffers: &[Geometry::vertex_desc()],
+                    compilation_options: Default::default(),
+                  },
+                  primitive: PrimitiveState {
+                    topology: PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: FrontFace::Ccw,
+                    cull_mode: Some(Face::Back),
+                    polygon_mode: PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                  },
+                  depth_stencil: None,
+                  multisample: MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                  },
+                  fragment: Some(FragmentState {
+                    module: &fragment_shader,
+                    entry_point: "fs_main",
+                    compilation_options: Default::default(),
+                    targets: &target,
+                  }),
+                  multiview: None,
+                  cache: None,
+                },
+              ));
+
+              self
+                .material_pipelines
+                .insert(material.shader_type().clone(), pipeline.clone());
+
+              pipeline
             }),
-            multiview: None,
-            cache: None,
-          },
-        ));
-
-        self
-          .material_pipelines
-          .insert(object.material().id().clone(), pipeline.clone());
-
-        pipeline
-      });
+          (fragment_data_buffer, fragment_data_bind_group),
+        )
+      })
+      .map(|(material_data, pipeline)| (Some(material_data), Some(pipeline)))
+      .unwrap_or((None, None));
 
     self.subjects.insert(
       object.id(),
       Subject {
+        material_data,
         transform: (transform, transform_bind_group),
         vertices,
         indices,
@@ -325,18 +342,26 @@ impl Scene {
       });
 
       for Subject {
+        material_data,
         transform: (_, transform_bind_group),
         vertices: (vertices, _),
         indices: (indices, index_count),
         pipeline,
       } in self.subjects.values()
       {
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, camera_bind_group, &[]);
-        render_pass.set_bind_group(1, transform_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, vertices.slice(..));
-        render_pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
-        render_pass.draw_indexed(0..*index_count as u32, 0, 0..1);
+        if let Some(pipeline) = pipeline {
+          render_pass.set_pipeline(pipeline);
+          render_pass.set_bind_group(0, camera_bind_group, &[]);
+          render_pass.set_bind_group(1, transform_bind_group, &[]);
+
+          if let Some((_, material_data_bind_group)) = material_data {
+            render_pass.set_bind_group(2, material_data_bind_group, &[]);
+          }
+
+          render_pass.set_vertex_buffer(0, vertices.slice(..));
+          render_pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
+          render_pass.draw_indexed(0..*index_count as u32, 0, 0..1);
+        }
       }
     }
 
@@ -466,7 +491,133 @@ impl Scene {
     );
   }
 
-  pub fn update_material(&mut self, resource: &mut (impl Resource + Object3D), material: Material) {
+  pub fn update_material(
+    &mut self,
+    renderer: &Renderer,
+    resource: &mut (impl Resource + Object3D),
+    material: Material,
+  ) {
+    let Some(subject) = self.subjects.get_mut(&resource.id()) else {
+      return;
+    };
+
+    let Some(camera_layout) = &self.camera_layout else {
+      return;
+    };
+
+    let transform_layout = renderer
+      .device()
+      .create_bind_group_layout(&BindGroupLayoutDescriptor {
+        label: None,
+        entries: &[BindGroupLayoutEntry {
+          binding: 0,
+          visibility: ShaderStages::VERTEX,
+          ty: BindingType::Buffer {
+            ty: BufferBindingType::Uniform,
+            has_dynamic_offset: false,
+            min_binding_size: None,
+          },
+          count: None,
+        }],
+      });
+
+    let fragment_data_layout = self
+      .material_layouts
+      .entry(material.shader_type().clone())
+      .or_insert_with(|| {
+        renderer
+          .device()
+          .create_bind_group_layout(material.fragment_data_layout())
+      });
+
+    let fragment_data_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
+      label: None,
+      contents: &material.fragment_data(),
+      usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+    });
+
+    let fragment_data_bind_group = renderer.device().create_bind_group(&BindGroupDescriptor {
+      label: None,
+      layout: fragment_data_layout,
+      entries: &[BindGroupEntry {
+        binding: 0,
+        resource: fragment_data_buffer.as_entire_binding(),
+      }],
+    });
+
+    let pipeline = self
+      .material_pipelines
+      .get(material.shader_type())
+      .cloned()
+      .unwrap_or_else(|| {
+        let pipeline_layout = renderer
+          .device()
+          .create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[&transform_layout, camera_layout, fragment_data_layout],
+            push_constant_ranges: &[],
+          });
+
+        let target = [renderer.supported_format().map(|format| ColorTargetState {
+          format,
+          blend: Some(BlendState::REPLACE),
+          write_mask: ColorWrites::ALL,
+        })];
+
+        let vertex_shader = renderer
+          .device()
+          .create_shader_module(material.vertex_shader().clone());
+
+        let fragment_shader = renderer
+          .device()
+          .create_shader_module(material.fragment_shader().clone());
+
+        let pipeline = Arc::new(renderer.device().create_render_pipeline(
+          &RenderPipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            vertex: VertexState {
+              module: &vertex_shader,
+              entry_point: "vs_main",
+              buffers: &[Geometry::vertex_desc()],
+              compilation_options: Default::default(),
+            },
+            primitive: PrimitiveState {
+              topology: PrimitiveTopology::TriangleList,
+              strip_index_format: None,
+              front_face: FrontFace::Ccw,
+              cull_mode: Some(Face::Back),
+              polygon_mode: PolygonMode::Fill,
+              unclipped_depth: false,
+              conservative: false,
+            },
+            depth_stencil: None,
+            multisample: MultisampleState {
+              count: 1,
+              mask: !0,
+              alpha_to_coverage_enabled: false,
+            },
+            fragment: Some(FragmentState {
+              module: &fragment_shader,
+              entry_point: "fs_main",
+              compilation_options: Default::default(),
+              targets: &target,
+            }),
+            multiview: None,
+            cache: None,
+          },
+        ));
+
+        self
+          .material_pipelines
+          .insert(material.shader_type().clone(), pipeline.clone());
+
+        pipeline
+      });
+
+    subject.pipeline = Some(pipeline);
+    subject.material_data = Some((fragment_data_buffer, fragment_data_bind_group));
+
     resource.set_material(material);
   }
 
@@ -500,5 +651,20 @@ impl Scene {
     }
 
     resource.set_geometry(geometry);
+  }
+
+  pub fn update_material_data(
+    &self,
+    renderer: &Renderer,
+    resource: &(impl Resource + Object3D),
+    data: &[u8],
+  ) {
+    let Some(subject) = self.subjects.get(&resource.id()) else {
+      return;
+    };
+
+    if let Some((buffer, _)) = &subject.material_data {
+      renderer.queue().write_buffer(buffer, 0, data);
+    }
   }
 }

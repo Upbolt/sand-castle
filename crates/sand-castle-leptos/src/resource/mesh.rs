@@ -64,10 +64,24 @@ pub fn Mesh(
       return;
     };
 
-    scene.update_untracked(|scene| {
-      mesh.update_untracked(|mesh| {
+    scene.update(|scene| {
+      mesh.update(|mesh| {
         if let (Some(scene), Some(mesh)) = (scene, mesh) {
           scene.update_geometry(&renderer, mesh, geometry);
+        }
+      });
+    });
+  });
+
+  Effect::new(move |_| {
+    let (Some(material), Some(renderer)) = (material.get(), renderer.get()) else {
+      return;
+    };
+
+    scene.update(|scene| {
+      mesh.update(|mesh| {
+        if let (Some(scene), Some(mesh)) = (scene, mesh) {
+          scene.update_material(&renderer, mesh, material);
         }
       });
     });
@@ -78,13 +92,9 @@ pub fn Mesh(
       return;
     };
 
-    mesh.update_untracked(|mesh| {
-      let Some(mesh) = mesh else {
-        return;
-      };
-
+    mesh.update(|mesh| {
       scene.with(|scene| {
-        if let Some(scene) = scene {
+        if let (Some(scene), Some(mesh)) = (scene, mesh) {
           scene.transform_pos(&renderer, mesh, position);
         }
       });
@@ -96,13 +106,9 @@ pub fn Mesh(
       return;
     };
 
-    mesh.update_untracked(|mesh| {
-      let Some(mesh) = mesh else {
-        return;
-      };
-
+    mesh.update(|mesh| {
       scene.with(|scene| {
-        if let Some(scene) = scene {
+        if let (Some(scene), Some(mesh)) = (scene, mesh) {
           scene.transform_rot(&renderer, mesh, rotation);
         }
       });
@@ -114,13 +120,9 @@ pub fn Mesh(
       return;
     };
 
-    mesh.update_untracked(|mesh| {
-      let Some(mesh) = mesh else {
-        return;
-      };
-
-      scene.with_untracked(|scene| {
-        if let Some(scene) = scene {
+    mesh.update(|mesh| {
+      scene.with(|scene| {
+        if let (Some(scene), Some(mesh)) = (scene, mesh) {
           scene.transform_scale(&renderer, mesh, scale);
         }
       });
@@ -129,12 +131,8 @@ pub fn Mesh(
 
   on_cleanup(move || {
     mesh.with(|mesh| {
-      let Some(mesh) = mesh else {
-        return;
-      };
-
       scene.update(|scene| {
-        if let Some(scene) = scene {
+        if let (Some(scene), Some(mesh)) = (scene, mesh) {
           scene.remove(mesh);
         }
       });

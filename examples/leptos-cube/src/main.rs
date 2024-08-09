@@ -37,10 +37,11 @@ fn main() {
 
 #[component]
 fn App() -> impl IntoView {
-  let yaw = RwSignal::new(-89.555);
-  let pitch = RwSignal::new(-19.25);
+  let yaw = RwSignal::new(-90.13);
+  let pitch = RwSignal::new(-19.69);
 
-  let camera_pos = RwSignal::new(Vec3::new(0.0, 1.5, 4.0));
+  let char_pos = RwSignal::new(Vec3::default());
+  let camera_pos = RwSignal::new(Vec3::new(4.79, 7.19, 5.09));
 
   let up = RwSignal::new(false);
   let down = RwSignal::new(false);
@@ -49,7 +50,6 @@ fn App() -> impl IntoView {
   let left = RwSignal::new(false);
   let right = RwSignal::new(false);
 
-  let cube_pos = RwSignal::new(Vec3::default());
   let cube_rot = RwSignal::new(Quat::default());
   let cube_rot_angle = RwSignal::new(0.0f32);
 
@@ -103,7 +103,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if up.get() {
-      camera_pos.update(|pos| {
+      char_pos.update(|pos| {
         if !down.get_untracked() {
           pos.y += 0.1;
         }
@@ -125,7 +125,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if down.get() {
-      camera_pos.update(|pos| {
+      char_pos.update(|pos| {
         if !up.get_untracked() {
           pos.y -= 0.1;
         }
@@ -147,7 +147,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if forward.get() {
-      camera_pos.update(|pos| {
+      char_pos.update(|pos| {
         if !backward.get_untracked() {
           pos.z -= 0.1;
         }
@@ -169,7 +169,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if backward.get() {
-      camera_pos.update(|pos| {
+      char_pos.update(|pos| {
         if !forward.get_untracked() {
           pos.z += 0.1;
         }
@@ -191,7 +191,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if left.get() {
-      camera_pos.update(|pos| {
+      char_pos.update(|pos| {
         if !right.get_untracked() {
           pos.x -= 0.1;
         }
@@ -213,7 +213,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if right.get() {
-      camera_pos.update(|pos| {
+      char_pos.update(|pos| {
         if !left.get_untracked() {
           pos.x += 0.1;
         }
@@ -266,80 +266,108 @@ fn App() -> impl IntoView {
     return coords;
   });
 
+  let middle_cube_color = RwSignal::new(Vec4::new(0.0, 1.0, 0.0, 1.0));
+
   use_interval_fn(
     move || {
-      cube_rot.update(|rot| {
-        if cube_pos.get_untracked().length() == 0.0 {
-          *rot = Quat::from_axis_angle(Vec3::Y, cube_rot_angle.get_untracked().to_radians());
-        } else {
-          *rot = Quat::from_axis_angle(
-            cube_pos.get().normalize(),
-            cube_rot_angle.get_untracked().to_radians(),
-          );
-        }
-      });
-
+      cube_rot.set(Quat::from_axis_angle(
+        Vec3::Y,
+        cube_rot_angle.get_untracked().to_radians(),
+      ));
       cube_rot_angle.update(|angle| {
         *angle = (*angle + 1.0) % 360.0;
+        middle_cube_color.set(hsv_to_rgb(*angle, 1.0, 1.0));
       });
     },
     1,
   );
 
   view! {
-      <h1 attr:style="margin-bottom: 0.125rem">"sand-castle leptos"</h1>
+    <h1 attr:style="margin-bottom: 0.125rem">"sand-castle leptos"</h1>
 
-      <Canvas
-        attr:style="display: block"
-        node_ref=canvas
-      >
-        <Scene color=Vec4::new(0.1, 0.1, 0.1, 1.0)>
-          <PerspectiveCamera
-            aspect_ratio=300.0/150.0
-            position=camera_pos
-            yaw=yaw
-            pitch=pitch
-          />
+    <Canvas
+      attr:style="display: block"
+      node_ref=canvas
+    >
+      <Scene color=Vec4::new(0.1, 0.1, 0.1, 1.0)>
+        <PerspectiveCamera
+          aspect_ratio=300.0/150.0
+          position=camera_pos
+          yaw=yaw
+          pitch=pitch
+        />
 
-          // <OrthographicCamera
-          //   screen_size=Vec2::new(300.0, 150.0)
-          //   position=camera_pos
-          //   yaw=yaw
-          //   pitch=pitch
-          // />
+        // <OrthographicCamera
+        //   screen_size=Vec2::new(300.0, 150.0)
+        //   position=camera_pos
+        //   yaw=yaw
+        //   pitch=pitch
+        // />
 
-          <Mesh
-            rotation=cube_rot
-            position=cube_pos
-          >
-            <Cuboid />
-            <BasicMaterial />
-          </Mesh>
-        </Scene>
-      </Canvas
-  >
+        <Mesh
+          rotation=cube_rot
+          position=Vec3::new(5.0, 0.0, 0.0)
+        >
+          <Cuboid />
+          <BasicMaterial color=Vec4::new(0.0, 0.0, 1.0, 1.0)/>
+        </Mesh>
+
+        <Mesh position=Vec3::new(-5.0, 0.0, 0.0)>
+          <Cuboid />
+          <BasicMaterial color=Vec4::new(1.0, 0.0, 0.0, 1.0) />
+        </Mesh>
+
+        <Mesh position=char_pos>
+          <Cuboid />
+          <BasicMaterial color=middle_cube_color/>
+        </Mesh>
+      </Scene>
+    </Canvas>
+
+    <div>
+      <h2 style="margin-bottom: 0.25rem">"camera"</h2>
+
       <div>
-        <h2 style="margin-bottom: 0.25rem">"camera"</h2>
-
-        <div>
-          <span>{move || format!("yaw: {}", yaw.get())}</span>
-        </div>
-
-        <div>
-          <span>{move || format!("pitch: {}", pitch.get())}</span>
-        </div>
-
-        <div>
-          <span>{move || format!("position: {:?}", camera_pos.get())}</span>
-        </div>
+        <span>{move || format!("yaw: {}", yaw.get())}</span>
       </div>
 
       <div>
-        <h2 style="margin-bottom: 0.25rem">"cube"</h2>
-
-        <div>
-          <span>{move || format!("rotation (y): {}°", cube_rot_angle.get())}</span>
-        </div>
+        <span>{move || format!("pitch: {}", pitch.get())}</span>
       </div>
-    }
+
+      <div>
+        <span>{move || format!("position: {:?}", camera_pos.get())}</span>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="margin-bottom: 0.25rem">"cube"</h2>
+
+      <div>
+        <span>{move || format!("rotation (y): {}°", cube_rot_angle.get())}</span>
+      </div>
+    </div>
+  }
+}
+
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Vec4 {
+  let c = v * s;
+  let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+  let m = v - c;
+
+  let (r_prime, g_prime, b_prime) = match h {
+    0.0..=60.0 => (c, x, 0.0),
+    60.0..=120.0 => (x, c, 0.0),
+    120.0..=180.0 => (0.0, c, x),
+    180.0..=240.0 => (0.0, x, c),
+    240.0..=300.0 => (x, 0.0, c),
+    300.0..=360.0 => (c, 0.0, x),
+    _ => (0.0, 0.0, 0.0), // Default case (shouldn't be needed if h is correctly bounded)
+  };
+
+  let r = (r_prime + m) as f32;
+  let g = (g_prime + m) as f32;
+  let b = (b_prime + m) as f32;
+
+  Vec4::new(r, g, b, 1.0)
 }
