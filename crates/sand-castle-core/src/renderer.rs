@@ -1,5 +1,5 @@
 use derive_builder::Builder;
-use derive_getters::Getters;
+use getset::Getters;
 use web_sys::HtmlCanvasElement;
 use wgpu::{
   Adapter, Backends, CreateSurfaceError, Device, DeviceDescriptor, Features, Instance,
@@ -16,20 +16,27 @@ pub enum Backend {
 }
 
 #[derive(Builder, Getters)]
+#[getset(get = "pub")]
 #[builder(pattern = "owned", build_fn(skip))]
 pub struct Renderer {
   backend: Backend,
   canvas: HtmlCanvasElement,
+
   #[builder(setter(skip))]
   surface: Surface<'static>,
+
   #[builder(setter(skip))]
   adapter: Adapter,
+
   #[builder(setter(skip))]
   device: Device,
+
   #[builder(setter(skip))]
   queue: Queue,
+
   #[builder(setter(skip))]
   surface_capabilities: SurfaceCapabilities,
+
   #[builder(setter(skip))]
   supported_format: Option<TextureFormat>,
 }
@@ -72,15 +79,19 @@ impl RendererBuilder {
       .await
       .ok_or(RendererBuildError::NoAdapter)?;
 
+    let mut required_limits = if backend == Backend::WebGL {
+      Limits::downlevel_webgl2_defaults()
+    } else {
+      Limits::downlevel_defaults()
+    };
+    required_limits.max_bind_groups = 8;
+    // required_limits.max_storage_buffers_per_shader_stage = 1;
+
     let (device, queue) = adapter
       .request_device(
         &DeviceDescriptor {
           required_features: Features::empty(),
-          required_limits: if backend == Backend::WebGL {
-            Limits::downlevel_webgl2_defaults()
-          } else {
-            Limits::downlevel_defaults()
-          },
+          required_limits,
           memory_hints: MemoryHints::default(),
           label: None,
         },

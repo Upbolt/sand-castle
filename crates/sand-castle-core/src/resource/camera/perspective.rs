@@ -1,21 +1,15 @@
 use derive_builder::Builder;
-use derive_getters::Getters;
+use getset::Getters;
 use glam::{Mat4, Quat, Vec3, Vec4};
 
-use crate::resource::{
-  object_3d::{Scale, Transform},
-  Id, Resource,
-};
+use crate::resource::object_3d::{Scale, Transform};
 
 use super::{Camera, ViewFrustum};
 
-#[derive(Getters, Builder)]
+#[derive(Getters, Builder, Debug)]
+#[getset(get = "pub")]
 #[builder(pattern = "owned", build_fn(private, name = "fallible_build"))]
 pub struct PerspectiveCamera {
-  #[getter(skip)]
-  #[builder(default = "Default::default()", setter(skip))]
-  id: Id,
-
   yaw: f32,
   pitch: f32,
 
@@ -26,11 +20,11 @@ pub struct PerspectiveCamera {
   #[builder(default = "Default::default()")]
   view_frustum: ViewFrustum,
 
-  #[getter(skip)]
+  #[getset(skip)]
   position: Vec3,
-  #[getter(skip)]
+  #[getset(skip)]
   rotation: Quat,
-  #[getter(skip)]
+  #[getset(skip)]
   scale: Scale,
 }
 
@@ -86,12 +80,6 @@ impl PerspectiveCamera {
 
   pub fn set_pitch(&mut self, pitch: f32) {
     self.pitch = pitch;
-  }
-}
-
-impl Resource for PerspectiveCamera {
-  fn id(&self) -> Id {
-    self.id
   }
 }
 

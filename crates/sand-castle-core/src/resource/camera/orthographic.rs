@@ -1,21 +1,15 @@
 use derive_builder::Builder;
-use derive_getters::Getters;
+use getset::Getters;
 use glam::{Mat4, Quat, Vec2, Vec3, Vec4};
 
-use crate::resource::{
-  object_3d::{Scale, Transform},
-  Id, Resource,
-};
+use crate::resource::object_3d::{Scale, Transform};
 
 use super::{Camera, ViewFrustum};
 
-#[derive(Getters, Builder)]
+#[derive(Getters, Builder, Debug)]
+#[getset(get = "pub")]
 #[builder(pattern = "owned", build_fn(private, name = "fallible_build"))]
 pub struct OrthographicCamera {
-  #[getter(skip)]
-  #[builder(default = "Default::default()", setter(skip))]
-  id: Id,
-
   yaw: f32,
   pitch: f32,
 
@@ -69,12 +63,6 @@ impl Camera for OrthographicCamera {
         Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize(),
         Vec3::Y,
       )
-  }
-}
-
-impl Resource for OrthographicCamera {
-  fn id(&self) -> Id {
-    self.id
   }
 }
 

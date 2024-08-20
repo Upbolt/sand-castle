@@ -21,8 +21,9 @@ pub fn PerspectiveCamera(
   #[prop(optional, into)] rotation: MaybeProp<Quat>,
   #[prop(optional, into)] scale: MaybeProp<Scale>,
 ) -> impl IntoView {
-  let SceneContextValue { scene, renderer } =
-    use_context().expect("`PerspectiveCamera must be used in a `Scene` component");
+  let SceneContextValue {
+    scene, renderer, ..
+  } = use_context().expect("`PerspectiveCamera must be used in a `Scene` component");
 
   let camera = RwSignal::<Option<CorePerspectiveCamera>>::new(None);
 
@@ -117,5 +118,5 @@ pub fn PerspectiveCamera(
     });
   });
 
-  ().into_view()
+  ()
 }

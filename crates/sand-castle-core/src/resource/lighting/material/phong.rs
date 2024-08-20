@@ -13,21 +13,21 @@ use super::{Material, ToMaterial};
 #[derive(Getters, Builder, Debug, Clone)]
 #[getset(get = "pub")]
 #[builder(pattern = "owned", build_fn(private, name = "infallible_build"))]
-pub struct BasicMaterial {
+pub struct PhongMaterial {
   #[builder(default)]
   color: Vec4,
 }
 
-impl BasicMaterialBuilder {
-  pub fn build(self) -> BasicMaterial {
+impl PhongMaterialBuilder {
+  pub fn build(self) -> PhongMaterial {
     self
       .infallible_build()
-      .expect("could not build `BasicMaterial`")
+      .expect("could not build `PhongMaterial`")
   }
 }
 
-impl BasicMaterial {
-  pub fn builder() -> BasicMaterialBuilder {
+impl PhongMaterial {
+  pub fn builder() -> PhongMaterialBuilder {
     Default::default()
   }
 
@@ -36,14 +36,14 @@ impl BasicMaterial {
   }
 }
 
-impl ToMaterial for BasicMaterial {
+impl ToMaterial for PhongMaterial {
   fn to_material(&self) -> Material {
     Material {
       shader_type: TypeId::of::<Self>(),
-      fragment_shader: include_wgsl!("shaders/basic/fs_basic.wgsl"),
-      vertex_shader: include_wgsl!("shaders/basic/vs_basic.wgsl"),
+      fragment_shader: include_wgsl!("shaders/phong/fs_phong.wgsl"),
+      vertex_shader: include_wgsl!("shaders/phong/vs_phong.wgsl"),
       fragment_data_layout: BindGroupLayoutDescriptor {
-        label: Some("BasicMaterial_BindGroupLayoutDescriptor"),
+        label: Some("PhongMaterial_BindGroupLayoutDescriptor"),
         entries: &[BindGroupLayoutEntry {
           binding: 0,
           visibility: ShaderStages::FRAGMENT,

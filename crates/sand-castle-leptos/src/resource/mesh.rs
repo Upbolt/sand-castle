@@ -4,7 +4,7 @@ use sand_castle_core::{
   resource::{
     geometry::Geometry,
     lighting::material::Material,
-    object_3d::{mesh::Mesh as CoreMesh, Scale},
+    object_3d::{mesh::Mesh as CoreMesh, Scale, SceneTransform},
     Resource,
   },
   Quat, Vec3,
@@ -32,8 +32,9 @@ pub fn Mesh(
   let geometry = RwSignal::<Option<Geometry>>::new(None);
   let material = RwSignal::<Option<Material>>::new(None);
 
-  let SceneContextValue { scene, renderer } =
-    use_context().expect("`Mesh` must be used in a `Scene` component");
+  let SceneContextValue {
+    scene, renderer, ..
+  } = use_context().expect("`Mesh` must be used in a `Scene` component");
 
   let position = Memo::new(move |_| position.get());
   let rotation = Memo::new(move |_| rotation.get());
@@ -95,7 +96,7 @@ pub fn Mesh(
     mesh.update(|mesh| {
       scene.with(|scene| {
         if let (Some(scene), Some(mesh)) = (scene, mesh) {
-          scene.transform_pos(&renderer, mesh, position);
+          mesh.update_pos(scene, &renderer, position);
         }
       });
     });
@@ -109,7 +110,7 @@ pub fn Mesh(
     mesh.update(|mesh| {
       scene.with(|scene| {
         if let (Some(scene), Some(mesh)) = (scene, mesh) {
-          scene.transform_rot(&renderer, mesh, rotation);
+          mesh.update_rot(scene, &renderer, rotation);
         }
       });
     });
@@ -123,7 +124,7 @@ pub fn Mesh(
     mesh.update(|mesh| {
       scene.with(|scene| {
         if let (Some(scene), Some(mesh)) = (scene, mesh) {
-          scene.transform_scale(&renderer, mesh, scale);
+          mesh.update_scale(scene, &renderer, scale);
         }
       });
     });

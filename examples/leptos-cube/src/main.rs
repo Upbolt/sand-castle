@@ -16,7 +16,10 @@ use sand_castle_leptos::{
   resource::{
     camera::{orthographic::OrthographicCamera, perspective::PerspectiveCamera},
     geometry::cuboid::Cuboid,
-    lighting::material::basic::BasicMaterial,
+    lighting::{
+      light::{ambient_light::AmbientLight, point_light::PointLight},
+      material::{basic::BasicMaterial, phong::PhongMaterial},
+    },
     mesh::Mesh,
   },
   scene::Scene,
@@ -37,11 +40,8 @@ fn main() {
 
 #[component]
 fn App() -> impl IntoView {
-  let yaw = RwSignal::new(-90.13);
-  let pitch = RwSignal::new(-19.69);
-
-  let char_pos = RwSignal::new(Vec3::default());
   let camera_pos = RwSignal::new(Vec3::new(4.79, 7.19, 5.09));
+  let char_pos = RwSignal::new(Vec3::default());
 
   let up = RwSignal::new(false);
   let down = RwSignal::new(false);
@@ -50,13 +50,10 @@ fn App() -> impl IntoView {
   let left = RwSignal::new(false);
   let right = RwSignal::new(false);
 
-  let cube_rot = RwSignal::new(Quat::default());
-  let cube_rot_angle = RwSignal::new(0.0f32);
-
-  let canvas = NodeRef::<Canvas>::new();
-
   let dragging = RwSignal::new(false);
   let coords = RwSignal::new((0, 0));
+
+  let canvas = NodeRef::<Canvas>::new();
 
   use_event_listener(use_window(), beforeunload, move |ev: BeforeUnloadEvent| {
     // ev.prevent_default();
@@ -103,7 +100,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if up.get() {
-      char_pos.update(|pos| {
+      camera_pos.update(|pos| {
         if !down.get_untracked() {
           pos.y += 0.1;
         }
@@ -125,7 +122,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if down.get() {
-      char_pos.update(|pos| {
+      camera_pos.update(|pos| {
         if !up.get_untracked() {
           pos.y -= 0.1;
         }
@@ -147,7 +144,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if forward.get() {
-      char_pos.update(|pos| {
+      camera_pos.update(|pos| {
         if !backward.get_untracked() {
           pos.z -= 0.1;
         }
@@ -169,7 +166,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if backward.get() {
-      char_pos.update(|pos| {
+      camera_pos.update(|pos| {
         if !forward.get_untracked() {
           pos.z += 0.1;
         }
@@ -191,7 +188,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if left.get() {
-      char_pos.update(|pos| {
+      camera_pos.update(|pos| {
         if !right.get_untracked() {
           pos.x -= 0.1;
         }
@@ -213,7 +210,7 @@ fn App() -> impl IntoView {
 
   Effect::new(move |_| {
     if right.get() {
-      char_pos.update(|pos| {
+      camera_pos.update(|pos| {
         if !left.get_untracked() {
           pos.x += 0.1;
         }
@@ -233,6 +230,12 @@ fn App() -> impl IntoView {
     }
   });
 
+  let yaw = RwSignal::new(-135.5_f32.to_radians());
+  let pitch = RwSignal::new(-45.0_f32.to_radians());
+
+  let cube_rot = RwSignal::new(Quat::default());
+  let cube_rot_angle = RwSignal::new(0.0f32);
+
   Effect::new(move |old_coords| {
     let (old_x, old_y) = old_coords.unwrap_or((0, 0));
 
@@ -240,33 +243,37 @@ fn App() -> impl IntoView {
     let (x, y) = &coords;
 
     if old_x != *x {
-      if old_x > *x {
-        yaw.update(|yaw| {
-          *yaw -= 0.025;
-        });
-      } else {
-        yaw.update(|yaw| {
-          *yaw += 0.025;
-        });
-      }
+      yaw.update(|yaw| {
+        if old_x > *x {
+          *yaw = (((*yaw).to_degrees() - 1.5f32) % 180.0f32).to_radians();
+        } else {
+          *yaw = (((*yaw).to_degrees() + 1.5f32) % 180.0f32).to_radians();
+        }
+      });
     }
 
     if old_y != *y {
-      if old_y > *y {
-        pitch.update(|pitch| {
-          *pitch += 0.025;
-        });
-      } else {
-        pitch.update(|pitch| {
-          *pitch -= 0.025;
-        });
-      }
+      pitch.update(|pitch| {
+        if old_y > *y {
+          *pitch = (((*pitch).to_degrees() + 1.5f32) % 180.0f32).to_radians();
+        } else {
+          *pitch = (((*pitch).to_degrees() - 1.5f32) % 180.0f32).to_radians();
+        }
+      });
     }
 
     return coords;
   });
 
   let middle_cube_color = RwSignal::new(Vec4::new(0.0, 1.0, 0.0, 1.0));
+  let ambient = RwSignal::new((0.1f32, false));
+  let point_light_y = RwSignal::new((10.0f32, false));
+  let point_light_pos = Signal::derive(move || Vec3::new(2.5, point_light_y.get().0, 0.0));
+  let ambient_light = Signal::derive(move || {
+    let ambient = ambient.get();
+
+    Vec3::new(ambient.0, ambient.0, ambient.0)
+  });
 
   use_interval_fn(
     move || {
@@ -277,6 +284,26 @@ fn App() -> impl IntoView {
       cube_rot_angle.update(|angle| {
         *angle = (*angle + 1.0) % 360.0;
         middle_cube_color.set(hsv_to_rgb(*angle, 1.0, 1.0));
+      });
+      point_light_y.update(|y| {
+        let new_y = y.0 + if y.1 { 0.1 } else { -0.1 };
+
+        y.0 = new_y;
+
+        if new_y.abs() >= 10.0 {
+          y.1 = new_y.is_sign_negative();
+        }
+      });
+      ambient.update(|color| {
+        let new_color = color.0 + if color.1 { 0.001 } else { -0.001 };
+
+        color.0 = new_color;
+
+        if new_color >= 0.1 {
+          color.1 = false;
+        } else if new_color <= 0.0 {
+          color.1 = true;
+        }
       });
     },
     1,
@@ -290,6 +317,14 @@ fn App() -> impl IntoView {
       node_ref=canvas
     >
       <Scene color=Vec4::new(0.1, 0.1, 0.1, 1.0)>
+        <AmbientLight
+          color=ambient_light
+        />
+
+        <PointLight
+          position=point_light_pos
+        />
+
         <PerspectiveCamera
           aspect_ratio=300.0/150.0
           position=camera_pos
@@ -297,19 +332,12 @@ fn App() -> impl IntoView {
           pitch=pitch
         />
 
-        // <OrthographicCamera
-        //   screen_size=Vec2::new(300.0, 150.0)
-        //   position=camera_pos
-        //   yaw=yaw
-        //   pitch=pitch
-        // />
-
         <Mesh
           rotation=cube_rot
           position=Vec3::new(5.0, 0.0, 0.0)
         >
           <Cuboid />
-          <BasicMaterial color=Vec4::new(0.0, 0.0, 1.0, 1.0)/>
+          <PhongMaterial color=middle_cube_color/>
         </Mesh>
 
         <Mesh position=Vec3::new(-5.0, 0.0, 0.0)>
@@ -319,7 +347,7 @@ fn App() -> impl IntoView {
 
         <Mesh position=char_pos>
           <Cuboid />
-          <BasicMaterial color=middle_cube_color/>
+          <PhongMaterial color=Vec4::new(0.0, 1.0, 0.0, 1.0)/>
         </Mesh>
       </Scene>
     </Canvas>
@@ -328,11 +356,11 @@ fn App() -> impl IntoView {
       <h2 style="margin-bottom: 0.25rem">"camera"</h2>
 
       <div>
-        <span>{move || format!("yaw: {}", yaw.get())}</span>
+        <span>{move || format!("yaw: {}°", yaw.get().to_degrees())}</span>
       </div>
 
       <div>
-        <span>{move || format!("pitch: {}", pitch.get())}</span>
+        <span>{move || format!("pitch: {}°", pitch.get().to_degrees())}</span>
       </div>
 
       <div>
@@ -345,6 +373,22 @@ fn App() -> impl IntoView {
 
       <div>
         <span>{move || format!("rotation (y): {}°", cube_rot_angle.get())}</span>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="margin-bottom: 0.25rem">"point light"</h2>
+
+      <div>
+        <span>{move || format!("y: {}°", point_light_pos.get().y)}</span>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="margin-bottom: 0.25rem">"ambient light"</h2>
+
+      <div>
+        <span>{move || format!("color: {:?}°", ambient_light.get())}</span>
       </div>
     </div>
   }

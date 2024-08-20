@@ -1,15 +1,21 @@
-use derive_builder::Builder;
-use derive_getters::Getters;
-use glam::{Quat, Vec3};
+pub mod instanced;
 
-use super::{Object3D, Scale, Transform};
-use crate::resource::{geometry::Geometry, lighting::material::Material, Id, Resource};
+use derive_builder::Builder;
+use getset::Getters;
+use glam::{Mat4, Quat, Vec3};
+
+use super::{Object3D, Scale, SceneTransform, Transform};
+use crate::{
+  renderer::Renderer,
+  resource::{geometry::Geometry, lighting::material::Material, Id, Resource},
+  scene::{Scene, Subject},
+};
 
 #[derive(Debug, Getters, Builder)]
 #[builder(pattern = "owned", build_fn(private, name = "fallible_build"))]
 pub struct Mesh {
   #[builder(setter(skip))]
-  #[getter(skip)]
+  #[getset(skip)]
   id: Id,
 
   #[builder(default)]
@@ -17,11 +23,11 @@ pub struct Mesh {
   #[builder(default, setter(strip_option))]
   material: Option<Material>,
 
-  #[getter(skip)]
+  #[getset(skip)]
   scale: Scale,
-  #[getter(skip)]
+  #[getset(skip)]
   position: Vec3,
-  #[getter(skip)]
+  #[getset(skip)]
   rotation: Quat,
 }
 
@@ -84,5 +90,81 @@ impl Transform for Mesh {
 
   fn set_scale(&mut self, dim: Scale) {
     self.scale = dim;
+  }
+}
+
+impl SceneTransform for Mesh {
+  fn update_pos(&mut self, scene: &Scene, renderer: &Renderer, pos: Vec3) {
+    self.set_pos(pos);
+
+    let Some(Subject {
+      transform: (transform, _),
+      normal: (normal, _),
+      ..
+    }) = &scene.subjects().get(&self.id())
+    else {
+      return;
+    };
+
+    renderer.queue().write_buffer(
+      transform,
+      0,
+      bytemuck::cast_slice(&[Mat4::from_translation(pos) * Mat4::from_quat(self.rot().clone())]),
+    );
+    renderer.queue().write_buffer(
+      normal,
+      0,
+      bytemuck::cast_slice(&[Mat4::from_quat(self.rot().clone())]),
+    );
+  }
+
+  fn update_rot(&mut self, scene: &Scene, renderer: &Renderer, rot: Quat) {
+    self.set_rot(rot);
+
+    let Some(Subject {
+      transform: (transform, _),
+      normal: (normal, _),
+      ..
+    }) = &scene.subjects().get(&self.id())
+    else {
+      return;
+    };
+
+    renderer.queue().write_buffer(
+      transform,
+      0,
+      bytemuck::cast_slice(&[Mat4::from_translation(self.pos().clone()) * Mat4::from_quat(rot)]),
+    );
+    renderer.queue().write_buffer(
+      normal,
+      0,
+      bytemuck::cast_slice(&[Mat4::from_quat(self.rot().clone())]),
+    );
+  }
+
+  fn update_scale(&mut self, scene: &Scene, renderer: &Renderer, scale: Scale) {
+    self.set_scale(scale);
+
+    let Some(Subject {
+      transform: (transform, _),
+      normal: (normal, _),
+      ..
+    }) = &scene.subjects().get(&self.id())
+    else {
+      return;
+    };
+
+    renderer.queue().write_buffer(
+      transform,
+      0,
+      bytemuck::cast_slice(&[
+        Mat4::from_translation(self.pos().clone()) * Mat4::from_quat(self.rot().clone())
+      ]),
+    );
+    renderer.queue().write_buffer(
+      normal,
+      0,
+      bytemuck::cast_slice(&[Mat4::from_quat(self.rot().clone())]),
+    );
   }
 }

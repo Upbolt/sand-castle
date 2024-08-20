@@ -1,14 +1,16 @@
 use std::any::TypeId;
 
 use basic::BasicMaterial;
-use derive_getters::Getters;
+use getset::Getters;
 use shader::ShaderMaterial;
 use wgpu::{BindGroupLayoutDescriptor, ShaderModuleDescriptor};
 
 pub mod basic;
+pub mod phong;
 pub mod shader;
 
 #[derive(Getters, Debug, Clone)]
+#[getset(get = "pub")]
 pub struct Material {
   pub(crate) shader_type: TypeId,
   pub(crate) vertex_shader: ShaderModuleDescriptor<'static>,

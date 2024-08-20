@@ -19,8 +19,9 @@ pub fn OrthographicCamera(
   #[prop(optional, into)] rotation: MaybeProp<Quat>,
   #[prop(optional, into)] scale: MaybeProp<Scale>,
 ) -> impl IntoView {
-  let SceneContextValue { scene, renderer } =
-    use_context().expect("`OrthographicCamera must be used in a `Scene` component");
+  let SceneContextValue {
+    scene, renderer, ..
+  } = use_context().expect("`OrthographicCamera must be used in a `Scene` component");
 
   let camera = RwSignal::<Option<CoreOrthographicCamera>>::new(None);
 
@@ -47,5 +48,5 @@ pub fn OrthographicCamera(
     camera.set(Some(orthographic_camera));
   });
 
-  view! {}
+  ()
 }

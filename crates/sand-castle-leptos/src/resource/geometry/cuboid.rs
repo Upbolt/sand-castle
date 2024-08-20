@@ -18,8 +18,9 @@ pub fn Cuboid(
 ) -> impl IntoView {
   let cuboid = RwSignal::<Option<CoreCuboid>>::new(None);
 
-  let SceneContextValue { scene, renderer } =
-    use_context().expect("`Cuboid` must be used in a `Scene` component");
+  let SceneContextValue {
+    scene, renderer, ..
+  } = use_context().expect("`Cuboid` must be used in a `Scene` component");
 
   let MeshContextValue { geometry, .. } =
     use_context().expect("`Cuboid` must be used in a `Mesh` component");
@@ -48,5 +49,5 @@ pub fn Cuboid(
     geometry.set(Some(cuboid_geometry));
   });
 
-  view! {}
+  ()
 }

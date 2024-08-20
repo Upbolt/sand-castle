@@ -1,17 +1,17 @@
 use derive_builder::Builder;
-use derive_getters::Getters;
+use getset::Getters;
 use glam::Mat4;
 
-use super::{object_3d::Transform, Resource};
+use super::object_3d::Transform;
 
 pub mod orthographic;
 pub mod perspective;
 
-pub trait Camera: Resource + Transform {
+pub trait Camera: Transform {
   fn to_matrix(&self) -> Mat4;
 }
 
-#[derive(Getters, Builder, Clone)]
+#[derive(Getters, Builder, Clone, Debug)]
 #[builder(pattern = "owned", build_fn(private, name = "fallible_build"))]
 pub struct ViewFrustum {
   #[builder(default = "1000.0")]

@@ -1,12 +1,13 @@
 use std::{any::TypeId, borrow::Cow};
 
 use derive_builder::Builder;
-use derive_getters::Getters;
+use getset::Getters;
 use wgpu::{BindGroupLayoutDescriptor, ShaderModuleDescriptor, ShaderSource};
 
 use super::{Material, ToMaterial};
 
-#[derive(Getters, Builder)]
+#[derive(Getters, Builder, Debug, Clone)]
+#[getset(get = "pub")]
 #[builder(pattern = "owned", build_fn(private, name = "infallible_build"))]
 pub struct ShaderMaterial {
   #[builder(setter(into))]
