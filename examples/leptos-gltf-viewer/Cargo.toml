@@ -1,0 +1,22 @@
+[package]
+name = "leptos-gltf-viewer"
+edition = '2021'
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+leptos = { version = "0.7.0-beta", features = ["csr"] }
+wasm-bindgen = "0.2.93"
+sand-castle-leptos = { path = "../../crates/sand-castle-leptos", features = [
+  "loader_gltf",
+] }
+leptos-use = { git = "https://github.com/Synphonyte/leptos-use", branch = "leptos-0.7" }
+reqwasm = "0.5.0"
+web-time = "1.1.0"
+getrandom = { version = "0.2", features = ["js"] }
+web-sys = { version = "0.3", features = [
+  "HtmlInputElement",
+  "FileList",
+  "File",
+  "FileReader",
+] }
+js-sys = { version = "0.3" }

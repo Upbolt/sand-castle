@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 
 use sand_castle_core::{
   resource::{lighting::light::spot_light::SpotLight as CoreSpotLight, Resource},

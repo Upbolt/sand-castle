@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use derive_builder::Builder;
 use getset::Getters;
 use glam::Vec4;
@@ -8,12 +6,22 @@ use wgpu::{
   ShaderStages,
 };
 
+use crate::resource::{texture::TextureId, Id};
+
 use super::{Material, ToMaterial};
 
-#[derive(Getters, Builder, Debug, Clone)]
+#[derive(Getters, Builder, Debug, Default, Clone)]
 #[getset(get = "pub")]
 #[builder(pattern = "owned", build_fn(private, name = "infallible_build"))]
 pub struct BasicMaterial {
+  #[getset(set = "pub")]
+  #[builder(default)]
+  diffuse_map_texture_id: Option<TextureId>,
+
+  #[getset(set = "pub")]
+  #[builder(default)]
+  normal_map_texture_id: Option<TextureId>,
+
   #[builder(default)]
   color: Vec4,
 }
@@ -32,15 +40,26 @@ impl BasicMaterial {
   }
 
   pub fn with_color(color: Vec4) -> Self {
-    Self { color }
+    Self {
+      color,
+      ..Default::default()
+    }
   }
 }
 
 impl ToMaterial for BasicMaterial {
   fn to_material(&self) -> Material {
+    let fragment_shader = if self.diffuse_map_texture_id.is_some() {
+      include_wgsl!("shaders/basic/fs_basic_tex.wgsl")
+    } else {
+      include_wgsl!("shaders/basic/fs_basic.wgsl")
+    };
+
     Material {
-      shader_type: TypeId::of::<Self>(),
-      fragment_shader: include_wgsl!("shaders/basic/fs_basic.wgsl"),
+      id: Id::new(),
+      diffuse_map_texture_id: self.diffuse_map_texture_id.clone(),
+      normal_map_texture_id: self.normal_map_texture_id.clone(),
+      fragment_shader,
       vertex_shader: include_wgsl!("shaders/basic/vs_basic.wgsl"),
       fragment_data_layout: BindGroupLayoutDescriptor {
         label: Some("BasicMaterial_BindGroupLayoutDescriptor"),

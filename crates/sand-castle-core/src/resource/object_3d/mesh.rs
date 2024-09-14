@@ -7,7 +7,7 @@ use glam::{Mat4, Quat, Vec3};
 use super::{Object3D, Scale, SceneTransform, Transform};
 use crate::{
   renderer::Renderer,
-  resource::{geometry::Geometry, lighting::material::Material, Id, Resource},
+  resource::{Id, Resource},
   scene::{Scene, Subject},
 };
 
@@ -18,10 +18,10 @@ pub struct Mesh {
   #[getset(skip)]
   id: Id,
 
-  #[builder(default)]
-  geometry: Geometry,
   #[builder(default, setter(strip_option))]
-  material: Option<Material>,
+  geometry_id: Option<Id>,
+  #[builder(default, setter(strip_option))]
+  material_id: Option<Id>,
 
   #[getset(skip)]
   scale: Scale,
@@ -50,20 +50,20 @@ impl Resource for Mesh {
 }
 
 impl Object3D for Mesh {
-  fn geometry(&self) -> &Geometry {
-    &self.geometry
+  fn geometry_id(&self) -> Option<Id> {
+    self.geometry_id
   }
 
-  fn material(&self) -> Option<&Material> {
-    self.material.as_ref()
+  fn material_id(&self) -> Option<Id> {
+    self.material_id
   }
 
-  fn set_geometry(&mut self, geometry: Geometry) {
-    self.geometry = geometry;
+  fn set_geometry_id(&mut self, geometry_id: Id) {
+    self.geometry_id = Some(geometry_id);
   }
 
-  fn set_material(&mut self, material: Material) {
-    self.material = Some(material);
+  fn set_material_id(&mut self, material_id: Id) {
+    self.material_id = Some(material_id);
   }
 }
 

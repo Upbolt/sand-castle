@@ -1,19 +1,23 @@
-use std::{any::TypeId, sync::Arc};
+use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
 use derive_builder::Builder;
 use getset::Getters;
-use glam::{Mat4, Quat, UVec3, UVec4, Vec3, Vec4};
+use glam::{Mat4, UVec3, UVec4, Vec3, Vec4};
 use indexmap::IndexMap;
 use wgpu::{
   util::{BufferInitDescriptor, DeviceExt},
-  BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-  BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState,
-  Buffer, BufferBindingType, BufferUsages, Color, ColorTargetState, ColorWrites, Face,
-  FragmentState, FrontFace, IndexFormat, LoadOp, MultisampleState, Operations,
-  PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
-  RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-  ShaderStages, StoreOp, VertexState,
+  AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+  BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent,
+  BlendFactor, BlendOperation, BlendState, Buffer, BufferBindingType, BufferUsages, Color,
+  ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Extent3d,
+  Face, FilterMode, FragmentState, FrontFace, ImageCopyTexture, ImageDataLayout, IndexFormat,
+  LoadOp, MultisampleState, Operations, Origin3d, PipelineLayoutDescriptor, PolygonMode,
+  PrimitiveState, PrimitiveTopology, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+  RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+  SamplerDescriptor, ShaderStages, StencilState, StoreOp, Texture, TextureAspect,
+  TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+  TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
 };
 
 use wasm_bindgen::prelude::*;
@@ -30,19 +34,19 @@ use crate::{
   resource::{
     camera::Camera,
     geometry::Geometry,
-    lighting::{
-      light::{
-        ambient_light::AmbientLight, directional_light::DirectionalLight, point_light::PointLight,
-        spot_light::SpotLight,
-      },
-      material::Material,
+    lighting::light::{
+      ambient_light::AmbientLight, directional_light::DirectionalLight, point_light::PointLight,
+      spot_light::SpotLight,
     },
+    loader::{geometry::GeometryLoader, material::MaterialLoader, textures::TextureLoader},
     object_3d::Object3D,
+    texture::TextureId,
     Id, Resource,
   },
 };
 
 pub(crate) struct Subject {
+  pub(crate) diffuse_texture_id: Option<TextureId>,
   pub(crate) material_data: Option<(Buffer, BindGroup)>,
   pub(crate) transform: (Buffer, BindGroup),
   pub(crate) normal: (Buffer, BindGroup),
@@ -52,9 +56,19 @@ pub(crate) struct Subject {
 }
 
 pub(crate) struct LightsBinding {
-  pub(crate) lights: Buffer,
-  pub(crate) light_count: Buffer,
+  pub(crate) directional_lights: Buffer,
+  pub(crate) point_lights: Buffer,
+  pub(crate) spot_lights: Buffer,
+  pub(crate) directional_light_count: Buffer,
+  pub(crate) point_light_count: Buffer,
+  pub(crate) spot_light_count: Buffer,
   pub(crate) bind_group: BindGroup,
+}
+
+struct Depth {
+  texture: Texture,
+  view: TextureView,
+  sampler: Sampler,
 }
 
 #[derive(Getters, Builder)]
@@ -81,23 +95,27 @@ pub struct Scene {
 
   #[getset(get = "pub(crate)")]
   #[builder(setter(custom))]
-  directional_lights: LightsBinding,
-
-  #[getset(get = "pub(crate)")]
-  #[builder(setter(custom))]
-  point_lights: LightsBinding,
-
-  #[getset(get = "pub(crate)")]
-  #[builder(setter(custom))]
-  spot_lights: LightsBinding,
+  lights: LightsBinding,
 
   #[getset(skip)]
   #[builder(default = "Default::default()", setter(skip))]
-  material_pipelines: IndexMap<TypeId, Arc<RenderPipeline>>,
+  material_pipelines: IndexMap<Id, Arc<RenderPipeline>>,
 
   #[getset(skip)]
   #[builder(default = "Default::default()", setter(skip))]
-  material_layouts: IndexMap<TypeId, BindGroupLayout>,
+  material_layouts: IndexMap<Id, BindGroupLayout>,
+
+  #[getset(skip)]
+  #[builder(setter(custom))]
+  texture_layout: BindGroupLayout,
+
+  #[getset(skip)]
+  #[builder(default = "Default::default()", setter(skip))]
+  texture_map_views: IndexMap<TextureId, (TextureView, BindGroup)>,
+
+  #[getset(skip)]
+  #[builder(setter(custom))]
+  texture_sampler: Sampler,
 
   #[getset(skip)]
   #[builder(setter(custom))]
@@ -110,6 +128,10 @@ pub struct Scene {
   #[getset(skip)]
   #[builder(setter(custom))]
   dynamic_lights_layout: BindGroupLayout,
+
+  #[getset(skip)]
+  #[builder(setter(custom))]
+  depth: Depth,
 }
 
 impl PartialEq for Scene {
@@ -119,7 +141,48 @@ impl PartialEq for Scene {
 }
 
 impl SceneBuilder {
-  pub fn init_camera(mut self, renderer: &Renderer) -> Self {
+  fn init_textures(mut self, renderer: &Renderer) -> Self {
+    let sampler = renderer.device().create_sampler(&SamplerDescriptor {
+      address_mode_u: AddressMode::ClampToEdge,
+      address_mode_v: AddressMode::ClampToEdge,
+      address_mode_w: AddressMode::ClampToEdge,
+      mag_filter: FilterMode::Linear,
+      min_filter: FilterMode::Nearest,
+      mipmap_filter: FilterMode::Nearest,
+      ..Default::default()
+    });
+
+    let texture_layout = renderer
+      .device()
+      .create_bind_group_layout(&BindGroupLayoutDescriptor {
+        label: Some("texture bind group layout"),
+        entries: &[
+          BindGroupLayoutEntry {
+            binding: 0,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Texture {
+              multisampled: false,
+              view_dimension: TextureViewDimension::D2,
+              sample_type: TextureSampleType::Float { filterable: true },
+            },
+            count: None,
+          },
+          BindGroupLayoutEntry {
+            binding: 1,
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Sampler(SamplerBindingType::Filtering),
+            count: None,
+          },
+        ],
+      });
+
+    self.texture_layout = Some(texture_layout);
+    self.texture_sampler = Some(sampler);
+
+    self
+  }
+
+  fn init_camera(mut self, renderer: &Renderer) -> Self {
     let camera_layout = renderer
       .device()
       .create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -157,7 +220,7 @@ impl SceneBuilder {
     self
   }
 
-  pub fn init_ambient_light(mut self, renderer: &Renderer) -> Self {
+  fn init_ambient_light(mut self, renderer: &Renderer) -> Self {
     let ambient_light_layout =
       renderer
         .device()
@@ -196,7 +259,7 @@ impl SceneBuilder {
     self
   }
 
-  pub fn init_dynamic_lights(mut self, renderer: &Renderer) -> Self {
+  fn init_dynamic_lights(mut self, renderer: &Renderer) -> Self {
     let dynamic_lights_layout =
       renderer
         .device()
@@ -223,25 +286,91 @@ impl SceneBuilder {
               },
               count: None,
             },
+            BindGroupLayoutEntry {
+              binding: 2,
+              visibility: ShaderStages::FRAGMENT,
+              ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+              },
+              count: None,
+            },
+            BindGroupLayoutEntry {
+              binding: 3,
+              visibility: ShaderStages::FRAGMENT,
+              ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+              },
+              count: None,
+            },
+            BindGroupLayoutEntry {
+              binding: 4,
+              visibility: ShaderStages::FRAGMENT,
+              ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+              },
+              count: None,
+            },
+            BindGroupLayoutEntry {
+              binding: 5,
+              visibility: ShaderStages::FRAGMENT,
+              ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+              },
+              count: None,
+            },
           ],
         });
 
     {
-      let light_buffer = [SpotLightBuffer::default(); 16];
+      let directional_light_buffer = [DirectionalLightBuffer::default(); 16];
+      let point_light_buffer = [PointLightBuffer::default(); 16];
+      let spot_light_buffer = [SpotLightBuffer::default(); 16];
 
       let directional_lights = renderer.device().create_buffer_init(&BufferInitDescriptor {
         label: Some("initial directional lights"),
-        contents: bytemuck::cast_slice(&light_buffer),
+        contents: bytemuck::cast_slice(&directional_light_buffer),
+        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+      });
+
+      let point_lights = renderer.device().create_buffer_init(&BufferInitDescriptor {
+        label: Some("initial point lights"),
+        contents: bytemuck::cast_slice(&point_light_buffer),
+        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+      });
+
+      let spot_lights = renderer.device().create_buffer_init(&BufferInitDescriptor {
+        label: Some("initial spot lights"),
+        contents: bytemuck::cast_slice(&spot_light_buffer),
         usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
       });
 
       let directional_light_count = renderer.device().create_buffer_init(&BufferInitDescriptor {
         label: Some("initial directional light count"),
         contents: bytemuck::cast_slice(&[UVec4::from((0, UVec3::default()))]),
-        usage: BufferUsages::UNIFORM,
+        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
       });
 
-      self.directional_lights = Some(LightsBinding {
+      let point_light_count = renderer.device().create_buffer_init(&BufferInitDescriptor {
+        label: Some("initial point light count"),
+        contents: bytemuck::cast_slice(&[UVec4::from((0, UVec3::default()))]),
+        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+      });
+
+      let spot_light_count = renderer.device().create_buffer_init(&BufferInitDescriptor {
+        label: Some("initial spot light count"),
+        contents: bytemuck::cast_slice(&[UVec4::from((0, UVec3::default()))]),
+        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+      });
+
+      self.lights = Some(LightsBinding {
         bind_group: renderer.device().create_bind_group(&BindGroupDescriptor {
           label: Some("initial directional light bind group"),
           layout: &dynamic_lights_layout,
@@ -252,86 +381,72 @@ impl SceneBuilder {
             },
             BindGroupEntry {
               binding: 1,
-              resource: directional_light_count.as_entire_binding(),
-            },
-          ],
-        }),
-        lights: directional_lights,
-        light_count: directional_light_count,
-      });
-    }
-
-    {
-      let light_buffer = [PointLightBuffer::default(); 16];
-
-      let point_lights = renderer.device().create_buffer_init(&BufferInitDescriptor {
-        label: Some("initial point lights"),
-        contents: bytemuck::cast_slice(&light_buffer),
-        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-      });
-
-      let point_light_count = renderer.device().create_buffer_init(&BufferInitDescriptor {
-        label: Some("initial point light count"),
-        contents: bytemuck::cast_slice(&[UVec4::from((0, UVec3::default()))]),
-        usage: BufferUsages::UNIFORM,
-      });
-
-      self.point_lights = Some(LightsBinding {
-        bind_group: renderer.device().create_bind_group(&BindGroupDescriptor {
-          label: Some("initial point lights bind group"),
-          layout: &dynamic_lights_layout,
-          entries: &[
-            BindGroupEntry {
-              binding: 0,
               resource: point_lights.as_entire_binding(),
             },
             BindGroupEntry {
-              binding: 1,
-              resource: point_light_count.as_entire_binding(),
-            },
-          ],
-        }),
-        lights: point_lights,
-        light_count: point_light_count,
-      });
-    }
-
-    {
-      let light_buffer = [SpotLightBuffer::default(); 16];
-
-      let spot_lights = renderer.device().create_buffer_init(&BufferInitDescriptor {
-        label: Some("initial spot lights"),
-        contents: bytemuck::cast_slice(&light_buffer),
-        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-      });
-
-      let spot_light_count = renderer.device().create_buffer_init(&BufferInitDescriptor {
-        label: Some("initial spot light count"),
-        contents: bytemuck::cast_slice(&[UVec4::from((0, UVec3::default()))]),
-        usage: BufferUsages::UNIFORM,
-      });
-
-      self.spot_lights = Some(LightsBinding {
-        bind_group: renderer.device().create_bind_group(&BindGroupDescriptor {
-          label: Some("initial spot lights bind group"),
-          layout: &dynamic_lights_layout,
-          entries: &[
-            BindGroupEntry {
-              binding: 0,
+              binding: 2,
               resource: spot_lights.as_entire_binding(),
             },
             BindGroupEntry {
-              binding: 1,
+              binding: 3,
+              resource: directional_light_count.as_entire_binding(),
+            },
+            BindGroupEntry {
+              binding: 4,
+              resource: point_light_count.as_entire_binding(),
+            },
+            BindGroupEntry {
+              binding: 5,
               resource: spot_light_count.as_entire_binding(),
             },
           ],
         }),
-        lights: spot_lights,
-        light_count: spot_light_count,
+        directional_lights,
+        point_lights,
+        spot_lights,
+        directional_light_count,
+        point_light_count,
+        spot_light_count,
       });
     }
 
     self.dynamic_lights_layout = Some(dynamic_lights_layout);
+    self
+  }
+
+  fn init_depth(mut self, renderer: &Renderer) -> Self {
+    let texture = renderer.device().create_texture(&TextureDescriptor {
+      label: None,
+      size: Extent3d {
+        width: renderer.canvas().client_width() as u32,
+        height: renderer.canvas().client_height() as u32,
+        depth_or_array_layers: 1,
+      },
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: TextureDimension::D2,
+      format: TextureFormat::Depth32Float,
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+      view_formats: &[],
+    });
+
+    self.depth = Some(Depth {
+      view: texture.create_view(&TextureViewDescriptor::default()),
+      sampler: renderer.device().create_sampler(&SamplerDescriptor {
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mipmap_filter: FilterMode::Nearest,
+        compare: Some(CompareFunction::LessEqual),
+        lod_min_clamp: 0.0,
+        lod_max_clamp: 100.0,
+        ..Default::default()
+      }),
+      texture,
+    });
+
     self
   }
 
@@ -365,8 +480,13 @@ struct SpotLightBuffer {
 }
 
 impl Scene {
-  pub fn builder() -> SceneBuilder {
-    Default::default()
+  pub fn builder(renderer: &Renderer) -> SceneBuilder {
+    SceneBuilder::default()
+      .init_camera(&renderer)
+      .init_depth(&renderer)
+      .init_ambient_light(&renderer)
+      .init_dynamic_lights(&renderer)
+      .init_textures(&renderer)
   }
 
   pub fn subject_count(&self) -> usize {
@@ -381,23 +501,50 @@ impl Scene {
     self.subjects.contains_key(&object.id())
   }
 
-  pub fn insert<Object: Resource + Object3D>(&mut self, renderer: &Renderer, object: &Object) {
+  pub fn insert<Object: Resource + Object3D>(
+    &mut self,
+    renderer: &Renderer,
+    geometry_loader: &GeometryLoader,
+    material_loader: &MaterialLoader,
+    texture_loader: &TextureLoader,
+    object: &Object,
+  ) {
+    let geometry = object
+      .geometry_id()
+      .and_then(|id| geometry_loader.get_from_id(id));
+
+    let material = object
+      .material_id()
+      .and_then(|id| material_loader.get_from_id(id));
+
     let vertices = (
       renderer.device().create_buffer_init(&BufferInitDescriptor {
         label: None,
-        contents: bytemuck::cast_slice(object.geometry().vertices()),
+        contents: bytemuck::cast_slice(
+          geometry
+            .map(|geometry| geometry.vertices())
+            .unwrap_or(&vec![]),
+        ),
         usage: BufferUsages::VERTEX,
       }),
-      object.geometry().vertices().len(),
+      geometry
+        .map(|geometry| geometry.vertices().len())
+        .unwrap_or_default(),
     );
 
     let indices = (
       renderer.device().create_buffer_init(&BufferInitDescriptor {
         label: None,
-        contents: bytemuck::cast_slice(object.geometry().indices()),
+        contents: bytemuck::cast_slice(
+          geometry
+            .map(|geometry| geometry.indices())
+            .unwrap_or(&vec![]),
+        ),
         usage: BufferUsages::INDEX,
       }),
-      object.geometry().indices().len(),
+      geometry
+        .map(|geometry| geometry.indices().len())
+        .unwrap_or_default(),
     );
 
     let transform = renderer.device().create_buffer_init(&BufferInitDescriptor {
@@ -413,6 +560,67 @@ impl Scene {
       contents: bytemuck::cast_slice(&[Mat4::from_quat(object.rot().clone())]),
       usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
     });
+
+    if let Some(id) = material.and_then(|material| material.diffuse_map_texture_id().clone()) {
+      if let Some((content, dimensions)) = texture_loader
+        .get_from_id(id)
+        .map(|texture| (texture.content.as_slice(), texture.dimensions))
+      {
+        let size = Extent3d {
+          width: dimensions.0,
+          height: dimensions.1,
+          depth_or_array_layers: 1,
+        };
+
+        let texture = renderer.device().create_texture(&TextureDescriptor {
+          size,
+          mip_level_count: 1,
+          sample_count: 1,
+          dimension: TextureDimension::D2,
+          format: TextureFormat::Rgba8UnormSrgb,
+          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+          label: Some(&format!(r#"TextureId({:?})"#, id)),
+          view_formats: &[],
+        });
+
+        renderer.queue().write_texture(
+          ImageCopyTexture {
+            aspect: TextureAspect::All,
+            texture: &texture,
+            mip_level: 0,
+            origin: Origin3d::ZERO,
+          },
+          content,
+          ImageDataLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * dimensions.0),
+            rows_per_image: Some(dimensions.1),
+          },
+          size,
+        );
+
+        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+
+        let texture_bind_group = renderer.device().create_bind_group(&BindGroupDescriptor {
+          label: Some(&format!("TextureId({:?}) bind group", id)),
+          layout: &self.texture_layout,
+          entries: &[
+            BindGroupEntry {
+              binding: 0,
+              resource: BindingResource::TextureView(&texture_view),
+            },
+            BindGroupEntry {
+              binding: 1,
+              resource: BindingResource::Sampler(&self.texture_sampler),
+            },
+          ],
+        });
+
+        self
+          .texture_map_views
+          .insert(id, (texture_view, texture_bind_group));
+      }
+    }
 
     let transform_layout = renderer
       .device()
@@ -465,16 +673,18 @@ impl Scene {
     });
 
     let (pipeline, material_data) = object
-      .material()
+      .material_id()
+      .and_then(|id| material_loader.get_from_id(id))
       .map(|material| {
-        let fragment_data_layout = self
-          .material_layouts
-          .entry(material.shader_type().clone())
-          .or_insert_with(|| {
-            renderer
-              .device()
-              .create_bind_group_layout(material.fragment_data_layout())
-          });
+        let fragment_data_layout =
+          self
+            .material_layouts
+            .entry(*material.id())
+            .or_insert_with(|| {
+              renderer
+                .device()
+                .create_bind_group_layout(material.fragment_data_layout())
+            });
 
         let fragment_data_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
           label: None,
@@ -494,24 +704,28 @@ impl Scene {
         (
           self
             .material_pipelines
-            .get(material.shader_type())
+            .get(material.id())
             .cloned()
             .unwrap_or_else(|| {
+              let mut bind_group_layouts = vec![
+                &transform_layout,
+                &self.camera_layout,
+                fragment_data_layout,
+                &normal_layout,
+                &self.ambient_light_layout,
+                &self.dynamic_lights_layout,
+              ];
+
+              if material.diffuse_map_texture_id().is_some() {
+                bind_group_layouts.push(&self.texture_layout);
+              }
+
               let pipeline_layout =
                 renderer
                   .device()
                   .create_pipeline_layout(&PipelineLayoutDescriptor {
                     label: None,
-                    bind_group_layouts: &[
-                      &transform_layout,
-                      &self.camera_layout,
-                      fragment_data_layout,
-                      &normal_layout,
-                      &self.ambient_light_layout,
-                      &self.dynamic_lights_layout,
-                      &self.dynamic_lights_layout,
-                      &self.dynamic_lights_layout,
-                    ],
+                    bind_group_layouts: &bind_group_layouts,
                     push_constant_ranges: &[],
                   });
 
@@ -537,7 +751,7 @@ impl Scene {
 
               let pipeline = Arc::new(renderer.device().create_render_pipeline(
                 &RenderPipelineDescriptor {
-                  label: None,
+                  label: Some("insertion pipeline"),
                   layout: Some(&pipeline_layout),
                   vertex: VertexState {
                     module: &vertex_shader,
@@ -554,7 +768,13 @@ impl Scene {
                     unclipped_depth: false,
                     conservative: false,
                   },
-                  depth_stencil: None,
+                  depth_stencil: Some(DepthStencilState {
+                    format: TextureFormat::Depth32Float,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::Less,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
+                  }),
                   multisample: MultisampleState {
                     count: 1,
                     mask: !0,
@@ -573,7 +793,7 @@ impl Scene {
 
               self
                 .material_pipelines
-                .insert(material.shader_type().clone(), pipeline.clone());
+                .insert(*material.id(), pipeline.clone());
 
               pipeline
             }),
@@ -586,6 +806,7 @@ impl Scene {
     self.subjects.insert(
       object.id(),
       Subject {
+        diffuse_texture_id: material.and_then(|material| material.diffuse_map_texture_id().clone()),
         material_data,
         normal: (normal, normal_bind_group),
         transform: (transform, transform_bind_group),
@@ -627,10 +848,19 @@ impl Scene {
           store: StoreOp::Store,
         },
       })],
+      depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+        view: &self.depth.view,
+        depth_ops: Some(Operations {
+          load: LoadOp::Clear(1.0),
+          store: StoreOp::Store,
+        }),
+        stencil_ops: None,
+      }),
       ..Default::default()
     });
 
     for Subject {
+      diffuse_texture_id,
       material_data,
       normal: (_, normal_bind_group),
       transform: (_, transform_bind_group),
@@ -654,9 +884,14 @@ impl Scene {
 
       render_pass.set_bind_group(3, normal_bind_group, &[]);
       render_pass.set_bind_group(4, &self.ambient_light.1, &[]);
-      render_pass.set_bind_group(5, &self.point_lights.bind_group, &[]);
-      render_pass.set_bind_group(6, &self.spot_lights.bind_group, &[]);
-      render_pass.set_bind_group(7, &self.directional_lights.bind_group, &[]);
+      render_pass.set_bind_group(5, &self.lights.bind_group, &[]);
+
+      if let Some((_, bind_group)) = diffuse_texture_id
+        .as_ref()
+        .and_then(|id| self.texture_map_views.get(id))
+      {
+        render_pass.set_bind_group(6, bind_group, &[]);
+      }
 
       render_pass.set_vertex_buffer(0, vertices.slice(..));
       render_pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
@@ -687,7 +922,7 @@ impl Scene {
     point_light: &PointLight,
   ) {
     renderer.queue().write_buffer(
-      &self.point_lights.lights,
+      &self.lights.point_lights,
       (index * size_of::<PointLightBuffer>()) as u64,
       bytemuck::cast_slice(&[PointLightBuffer {
         position: Vec4::from((*point_light.position(), 0.0)),
@@ -698,7 +933,7 @@ impl Scene {
 
   pub fn update_spot_light(&mut self, renderer: &Renderer, index: usize, spot_light: &SpotLight) {
     renderer.queue().write_buffer(
-      &self.spot_lights.lights,
+      &self.lights.spot_lights,
       (index * size_of::<SpotLightBuffer>()) as u64,
       bytemuck::cast_slice(&[SpotLightBuffer {
         position: Vec4::from((*spot_light.position(), 0.0)),
@@ -716,7 +951,7 @@ impl Scene {
     spot_light: &DirectionalLight,
   ) {
     renderer.queue().write_buffer(
-      &self.directional_lights.lights,
+      &self.lights.directional_lights,
       (index * size_of::<DirectionalLightBuffer>()) as u64,
       bytemuck::cast_slice(&[DirectionalLightBuffer {
         color: Vec4::from((*spot_light.color(), 1.0)),
@@ -740,39 +975,18 @@ impl Scene {
       lights[i] = buffer;
     }
 
-    let lights = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: Some("point lights"),
-      contents: bytemuck::cast_slice(&lights),
-      usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-    });
+    renderer
+      .queue()
+      .write_buffer(&self.lights.point_lights, 0, bytemuck::cast_slice(&lights));
 
-    let light_count = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: Some("point light count"),
-      contents: bytemuck::cast_slice(&[UVec4::from((
+    renderer.queue().write_buffer(
+      &self.lights.point_light_count,
+      0,
+      bytemuck::cast_slice(&[UVec4::from((
         point_lights.len().min(16) as u32,
         UVec3::default(),
       ))]),
-      usage: BufferUsages::UNIFORM,
-    });
-
-    self.point_lights = LightsBinding {
-      bind_group: renderer.device().create_bind_group(&BindGroupDescriptor {
-        label: Some("point lights"),
-        layout: &self.dynamic_lights_layout,
-        entries: &[
-          BindGroupEntry {
-            binding: 0,
-            resource: lights.as_entire_binding(),
-          },
-          BindGroupEntry {
-            binding: 1,
-            resource: light_count.as_entire_binding(),
-          },
-        ],
-      }),
-      lights,
-      light_count,
-    };
+    );
   }
 
   pub fn bind_spot_lights(&mut self, renderer: &Renderer, spot_lights: &[SpotLight]) {
@@ -792,39 +1006,18 @@ impl Scene {
       lights[i] = buffer;
     }
 
-    let lights = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: Some("spot lights"),
-      contents: bytemuck::cast_slice(&lights),
-      usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-    });
+    renderer
+      .queue()
+      .write_buffer(&self.lights.spot_lights, 0, bytemuck::cast_slice(&lights));
 
-    let light_count = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: Some("spot light count"),
-      contents: bytemuck::cast_slice(&[UVec4::from((
+    renderer.queue().write_buffer(
+      &self.lights.spot_light_count,
+      0,
+      bytemuck::cast_slice(&[UVec4::from((
         spot_lights.len().min(16) as u32,
         UVec3::default(),
       ))]),
-      usage: BufferUsages::UNIFORM,
-    });
-
-    self.spot_lights = LightsBinding {
-      bind_group: renderer.device().create_bind_group(&BindGroupDescriptor {
-        label: Some("spot lights"),
-        layout: &self.dynamic_lights_layout,
-        entries: &[
-          BindGroupEntry {
-            binding: 0,
-            resource: lights.as_entire_binding(),
-          },
-          BindGroupEntry {
-            binding: 1,
-            resource: light_count.as_entire_binding(),
-          },
-        ],
-      }),
-      lights,
-      light_count,
-    };
+    );
   }
 
   pub fn bind_directional_lights(
@@ -846,39 +1039,20 @@ impl Scene {
       lights[i] = buffer;
     }
 
-    let lights = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: Some("directional lights"),
-      contents: bytemuck::cast_slice(&lights),
-      usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-    });
+    renderer.queue().write_buffer(
+      &self.lights.directional_lights,
+      0,
+      bytemuck::cast_slice(&lights),
+    );
 
-    let light_count = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: Some("directional light count"),
-      contents: bytemuck::cast_slice(&[UVec4::from((
+    renderer.queue().write_buffer(
+      &self.lights.directional_light_count,
+      0,
+      bytemuck::cast_slice(&[UVec4::from((
         directional_lights.len().min(16) as u32,
         UVec3::default(),
       ))]),
-      usage: BufferUsages::UNIFORM,
-    });
-
-    self.directional_lights = LightsBinding {
-      bind_group: renderer.device().create_bind_group(&BindGroupDescriptor {
-        label: Some("directional lights"),
-        layout: &self.dynamic_lights_layout,
-        entries: &[
-          BindGroupEntry {
-            binding: 0,
-            resource: lights.as_entire_binding(),
-          },
-          BindGroupEntry {
-            binding: 1,
-            resource: light_count.as_entire_binding(),
-          },
-        ],
-      }),
-      lights,
-      light_count,
-    };
+    );
   }
 
   pub fn set_camera(&mut self, renderer: &Renderer, camera: &impl Camera) {
@@ -914,11 +1088,83 @@ impl Scene {
     &mut self,
     renderer: &Renderer,
     resource: &mut (impl Resource + Object3D),
-    material: Material,
+    texture_loader: &TextureLoader,
+    material_loader: &MaterialLoader,
+    material_id: Id,
   ) {
-    let Some(subject) = self.subjects.get_mut(&resource.id()) else {
+    let (Some(subject), Some(material)) = (
+      self.subjects.get_mut(&resource.id()),
+      material_loader.get_from_id(material_id),
+    ) else {
       return;
     };
+
+    if let Some(id) = material.diffuse_map_texture_id() {
+      if let Some((content, dimensions)) = texture_loader
+        .get_from_id(*id)
+        .map(|texture| (texture.content.as_slice(), texture.dimensions))
+      {
+        let size = Extent3d {
+          width: dimensions.0,
+          height: dimensions.1,
+          depth_or_array_layers: 1,
+        };
+
+        let texture = renderer.device().create_texture(&TextureDescriptor {
+          size,
+          mip_level_count: 1,
+          sample_count: 1,
+          dimension: TextureDimension::D2,
+          format: TextureFormat::Rgba8UnormSrgb,
+          usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+          label: Some(&format!(
+            r#"TextureId({:?})"#,
+            material.diffuse_map_texture_id()
+          )),
+          view_formats: &[],
+        });
+
+        renderer.queue().write_texture(
+          ImageCopyTexture {
+            aspect: TextureAspect::All,
+            texture: &texture,
+            mip_level: 0,
+            origin: Origin3d::ZERO,
+          },
+          content,
+          ImageDataLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * dimensions.0),
+            rows_per_image: Some(dimensions.1),
+          },
+          size,
+        );
+
+        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+
+        let texture_bind_group = renderer.device().create_bind_group(&BindGroupDescriptor {
+          label: material
+            .diffuse_map_texture_id()
+            .map(|id| format!("TextureId({:?}) bind group", id))
+            .as_deref(),
+          layout: &self.texture_layout,
+          entries: &[
+            BindGroupEntry {
+              binding: 0,
+              resource: BindingResource::TextureView(&texture_view),
+            },
+            BindGroupEntry {
+              binding: 1,
+              resource: BindingResource::Sampler(&self.texture_sampler),
+            },
+          ],
+        });
+
+        self
+          .texture_map_views
+          .insert(*id, (texture_view, texture_bind_group));
+      }
+    }
 
     let transform_layout = renderer
       .device()
@@ -954,7 +1200,7 @@ impl Scene {
 
     let fragment_data_layout = self
       .material_layouts
-      .entry(material.shader_type().clone())
+      .entry(*material.id())
       .or_insert_with(|| {
         renderer
           .device()
@@ -978,23 +1224,27 @@ impl Scene {
 
     let pipeline = self
       .material_pipelines
-      .get(material.shader_type())
+      .get(material.id())
       .cloned()
       .unwrap_or_else(|| {
+        let mut bind_group_layouts = vec![
+          &transform_layout,
+          &self.camera_layout,
+          fragment_data_layout,
+          &normal_layout,
+          &self.ambient_light_layout,
+          &self.dynamic_lights_layout,
+        ];
+
+        if material.diffuse_map_texture_id().is_some() {
+          bind_group_layouts.push(&self.texture_layout);
+        }
+
         let pipeline_layout = renderer
           .device()
           .create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[
-              &transform_layout,
-              &self.camera_layout,
-              fragment_data_layout,
-              &normal_layout,
-              &self.ambient_light_layout,
-              &self.dynamic_lights_layout,
-              &self.dynamic_lights_layout,
-              &self.dynamic_lights_layout,
-            ],
+            bind_group_layouts: &bind_group_layouts,
             push_constant_ranges: &[],
           });
 
@@ -1021,7 +1271,7 @@ impl Scene {
 
         let pipeline = Arc::new(renderer.device().create_render_pipeline(
           &RenderPipelineDescriptor {
-            label: None,
+            label: Some("update pipeline"),
             layout: Some(&pipeline_layout),
             vertex: VertexState {
               module: &vertex_shader,
@@ -1038,7 +1288,13 @@ impl Scene {
               unclipped_depth: false,
               conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+              format: TextureFormat::Depth32Float,
+              depth_write_enabled: true,
+              depth_compare: CompareFunction::Less,
+              stencil: StencilState::default(),
+              bias: DepthBiasState::default(),
+            }),
             multisample: MultisampleState {
               count: 1,
               mask: !0,
@@ -1057,23 +1313,29 @@ impl Scene {
 
         self
           .material_pipelines
-          .insert(material.shader_type().clone(), pipeline.clone());
+          .insert(*material.id(), pipeline.clone());
 
         pipeline
       });
 
     subject.pipeline = Some(pipeline);
+    subject.diffuse_texture_id = material.diffuse_map_texture_id().clone();
     subject.material_data = Some((fragment_data_buffer, fragment_data_bind_group));
 
-    resource.set_material(material);
+    resource.set_material_id(material_id);
   }
 
   pub fn update_geometry(
     &mut self,
     renderer: &Renderer,
     resource: &mut (impl Resource + Object3D),
-    geometry: Geometry,
+    loader: &GeometryLoader,
+    geometry_id: Id,
   ) {
+    let Some(geometry) = loader.get_from_id(geometry_id) else {
+      return;
+    };
+
     let vertices = (
       renderer.device().create_buffer_init(&BufferInitDescriptor {
         label: None,
@@ -1097,7 +1359,7 @@ impl Scene {
       subject.vertices = vertices;
     }
 
-    resource.set_geometry(geometry);
+    resource.set_geometry_id(geometry_id);
   }
 
   pub fn update_material_data(

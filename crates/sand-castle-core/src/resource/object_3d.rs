@@ -3,7 +3,7 @@ use glam::{Quat, Vec3};
 
 use crate::{renderer::Renderer, scene::Scene};
 
-use super::{geometry::Geometry, lighting::material::Material, Resource};
+use super::{Id, Resource};
 
 pub mod mesh;
 
@@ -26,11 +26,11 @@ impl Default for Scale {
 }
 
 pub trait Object3D: Transform {
-  fn geometry(&self) -> &Geometry;
-  fn material(&self) -> Option<&Material>;
+  fn geometry_id(&self) -> Option<Id>;
+  fn material_id(&self) -> Option<Id>;
 
-  fn set_geometry(&mut self, geometry: Geometry);
-  fn set_material(&mut self, material: Material);
+  fn set_geometry_id(&mut self, geometry_id: Id);
+  fn set_material_id(&mut self, material_id: Id);
 }
 
 pub trait Transform {

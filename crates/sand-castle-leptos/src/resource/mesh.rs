@@ -1,11 +1,13 @@
-use leptos::*;
+use std::sync::Arc;
+
+use leptos::prelude::*;
 
 use sand_castle_core::{
   resource::{
-    geometry::Geometry,
+    geometry::{Geometry, ToGeometry},
     lighting::material::Material,
     object_3d::{mesh::Mesh as CoreMesh, Scale, SceneTransform},
-    Resource,
+    Id, Resource,
   },
   Quat, Vec3,
 };
@@ -14,26 +16,34 @@ use crate::scene::SceneContextValue;
 
 #[derive(Clone)]
 pub struct MeshContextValue {
-  pub mesh: RwSignal<Option<CoreMesh>>,
-  pub geometry: RwSignal<Option<Geometry>>,
-  pub material: RwSignal<Option<Material>>,
+  pub mesh: RwSignal<Option<CoreMesh>, LocalStorage>,
+  pub geometry_id: RwSignal<Option<Id>, LocalStorage>,
+  pub material_id: RwSignal<Option<Id>, LocalStorage>,
 }
 
 #[component]
 pub fn Mesh(
-  #[prop(optional, into)] position: MaybeProp<Vec3>,
-  #[prop(optional, into)] rotation: MaybeProp<Quat>,
-  #[prop(optional, into)] scale: MaybeProp<Scale>,
+  #[prop(optional, into)] position: MaybeSignal<Vec3>,
+  #[prop(optional, into)] rotation: MaybeSignal<Quat>,
+  #[prop(optional, into)] scale: MaybeSignal<Scale>,
+
+  #[prop(optional, into)] geometry_id: MaybeProp<Id>,
+  #[prop(optional, into)] material_id: MaybeProp<Id>,
 
   children: Children,
 ) -> impl IntoView {
-  let mesh = RwSignal::<Option<CoreMesh>>::new(None);
+  let mesh = RwSignal::new_local(None);
 
-  let geometry = RwSignal::<Option<Geometry>>::new(None);
-  let material = RwSignal::<Option<Material>>::new(None);
+  let inner_geometry_id = RwSignal::new_local(None);
+  let inner_material_id = RwSignal::new_local(None);
 
   let SceneContextValue {
-    scene, renderer, ..
+    scene,
+    renderer,
+    geometry_loader,
+    material_loader,
+    texture_loader,
+    ..
   } = use_context().expect("`Mesh` must be used in a `Scene` component");
 
   let position = Memo::new(move |_| position.get());
@@ -46,52 +56,104 @@ pub fn Mesh(
     };
 
     let mesh_desc = CoreMesh::builder()
-      .position(position.get_untracked().unwrap_or_default())
-      .rotation(rotation.get_untracked().unwrap_or_default())
-      .scale(scale.get_untracked().unwrap_or_default())
+      .position(position.get_untracked())
+      .rotation(rotation.get_untracked())
+      .scale(scale.get_untracked())
       .build();
 
-    scene.update(|scene| {
-      if let Some(scene) = scene {
-        scene.insert(&renderer, &mesh_desc);
-      }
+    geometry_loader.with_untracked(|geometry_loader| {
+      material_loader.with_untracked(|material_loader| {
+        texture_loader.with_untracked(|texture_loader| {
+          scene.update(|scene| {
+            if let (
+              Some(scene),
+              Some(geometry_loader),
+              Some(material_loader),
+              Some(texture_loader),
+            ) = (scene, geometry_loader, material_loader, texture_loader)
+            {
+              scene.insert(
+                &renderer,
+                geometry_loader,
+                material_loader,
+                texture_loader,
+                &mesh_desc,
+              );
+            }
+          });
+        });
+      });
     });
 
     mesh.set(Some(mesh_desc));
   });
 
   Effect::new(move |_| {
-    let (Some(geometry), Some(renderer)) = (geometry.get(), renderer.get()) else {
+    let geometry_id = geometry_id.get();
+
+    if geometry_id.is_some() {
+      inner_geometry_id.set(geometry_id);
+    }
+  });
+
+  Effect::new(move |_| {
+    let material_id = material_id.get();
+
+    if material_id.is_some() {
+      inner_material_id.set(material_id);
+    }
+  });
+
+  Effect::new(move |_| {
+    let (Some(inner_geometry_id), Some(renderer)) = (inner_geometry_id.get(), renderer.get())
+    else {
       return;
     };
 
-    scene.update(|scene| {
-      mesh.update(|mesh| {
-        if let (Some(scene), Some(mesh)) = (scene, mesh) {
-          scene.update_geometry(&renderer, mesh, geometry);
-        }
+    geometry_loader.with(|loader| {
+      scene.update(|scene| {
+        mesh.update(|mesh| {
+          if let (Some(scene), Some(mesh), Some(loader)) = (scene, mesh, loader) {
+            scene.update_geometry(&renderer, mesh, loader, inner_geometry_id);
+          }
+        });
       });
     });
   });
 
   Effect::new(move |_| {
-    let (Some(material), Some(renderer)) = (material.get(), renderer.get()) else {
+    let (Some(inner_material_id), Some(renderer)) = (inner_material_id.get(), renderer.get())
+    else {
       return;
     };
 
-    scene.update(|scene| {
-      mesh.update(|mesh| {
-        if let (Some(scene), Some(mesh)) = (scene, mesh) {
-          scene.update_material(&renderer, mesh, material);
-        }
+    material_loader.with(|material_loader| {
+      texture_loader.with(|texture_loader| {
+        scene.update(|scene| {
+          mesh.update(|mesh| {
+            if let (Some(scene), Some(mesh), Some(material_loader), Some(texture_loader)) =
+              (scene, mesh, material_loader, texture_loader)
+            {
+              scene.update_material(
+                &renderer,
+                mesh,
+                texture_loader,
+                material_loader,
+                inner_material_id,
+              );
+            }
+          });
+        });
       });
     });
   });
 
   Effect::new(move |_| {
-    let (Some(position), Some(renderer)) = (position.get(), renderer.get()) else {
+    let Some(renderer) = renderer.get() else {
       return;
     };
+
+    let position = position.get();
 
     mesh.update(|mesh| {
       scene.with(|scene| {
@@ -103,9 +165,11 @@ pub fn Mesh(
   });
 
   Effect::new(move |_| {
-    let (Some(rotation), Some(renderer)) = (rotation.get(), renderer.get()) else {
+    let Some(renderer) = renderer.get() else {
       return;
     };
+
+    let rotation = rotation.get();
 
     mesh.update(|mesh| {
       scene.with(|scene| {
@@ -117,9 +181,11 @@ pub fn Mesh(
   });
 
   Effect::new(move |_| {
-    let (Some(scale), Some(renderer)) = (scale.get(), renderer.get()) else {
+    let Some(renderer) = renderer.get() else {
       return;
     };
+
+    let scale = scale.get();
 
     mesh.update(|mesh| {
       scene.with(|scene| {
@@ -142,8 +208,8 @@ pub fn Mesh(
 
   provide_context(MeshContextValue {
     mesh,
-    geometry,
-    material,
+    geometry_id: inner_geometry_id,
+    material_id: inner_material_id,
   });
 
   children().into_view()

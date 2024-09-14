@@ -3,21 +3,25 @@ use std::mem::offset_of;
 use bytemuck::{Pod, Zeroable};
 use derive_more::From;
 use getset::Getters;
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 use wgpu::{BufferAddress, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
+
+use super::Id;
 
 pub mod cuboid;
 
 #[repr(C)]
 #[derive(Getters, Default, Pod, Zeroable, From, Clone, Copy, Debug)]
 pub struct Vertex {
-  position: Vec3,
-  normal: Vec3,
+  pub(crate) position: Vec3,
+  pub(crate) normal: Vec3,
+  pub(crate) tex_coords: Vec2,
 }
 
 #[derive(Getters, Default, Clone, Debug)]
 #[getset(get = "pub")]
 pub struct Geometry {
+  pub(crate) id: Id,
   pub(crate) vertices: Vec<Vertex>,
   pub(crate) indices: Vec<u32>,
 }
@@ -26,7 +30,25 @@ pub trait ToGeometry {
   fn to_geometry(&self) -> Geometry;
 }
 
+impl Vertex {
+  pub fn new(position: Vec3, normal: Vec3, tex_coords: Vec2) -> Self {
+    Self {
+      position,
+      normal,
+      tex_coords,
+    }
+  }
+}
+
 impl Geometry {
+  pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Self {
+    Self {
+      id: Id::new(),
+      vertices,
+      indices,
+    }
+  }
+
   pub(crate) fn vertex_desc() -> VertexBufferLayout<'static> {
     VertexBufferLayout {
       array_stride: size_of::<Vertex>() as BufferAddress,
@@ -41,6 +63,11 @@ impl Geometry {
           offset: offset_of!(Vertex, normal) as u64,
           shader_location: 1,
           format: VertexFormat::Float32x3,
+        },
+        VertexAttribute {
+          offset: offset_of!(Vertex, tex_coords) as u64,
+          shader_location: 2,
+          format: VertexFormat::Float32x2,
         },
       ],
     }

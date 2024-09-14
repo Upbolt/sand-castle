@@ -8,6 +8,23 @@ version.workspace = true
 
 [dependencies]
 bytemuck = "1.16"
-leptos = "0.6"
-leptos-use = "0.12"
+derive_builder = "0.20.1"
+futures = { version = "0.3", optional = true }
+indexmap = { version = "2.5", optional = true }
+leptos = "0.7.0-beta"
+leptos-use = { git = "https://github.com/Synphonyte/leptos-use", branch = "leptos-0.7" }
 sand-castle-core = { path = "../sand-castle-core" }
+wasm-bindgen = { version = "0.2" }
+getrandom = { version = "0.2", features = ["js"] }
+
+[features]
+loader = []
+to_url = ["sand-castle-core/to_url"]
+loader_textures = ["sand-castle-core/loader_textures"]
+loader_gltf = [
+  "loader",
+  "loader_textures",
+  "sand-castle-core/loader_gltf",
+  "dep:indexmap",
+  "dep:futures",
+]

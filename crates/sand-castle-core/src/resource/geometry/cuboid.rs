@@ -2,10 +2,12 @@ use derive_builder::Builder;
 use getset::Getters;
 use glam::Vec3;
 
+use crate::resource::Id;
+
 use super::{Geometry, ToGeometry, Vertex};
 
 #[derive(Getters, Builder, Debug, Clone)]
-#[getset(get = "pub")]
+#[getset(get = "pub", set = "pub")]
 #[builder(pattern = "owned", build_fn(private, name = "fallible_build"))]
 pub struct Cuboid {
   #[builder(default = "1.0")]
@@ -66,10 +68,15 @@ impl ToGeometry for Cuboid {
     let normals = Geometry::calculate_normals(&vertices, &indices);
 
     Geometry {
+      id: Id::new(),
       vertices: vertices
         .into_iter()
         .zip(normals.into_iter())
-        .map(|(position, normal)| Vertex { position, normal })
+        .map(|(position, normal)| Vertex {
+          position,
+          normal,
+          tex_coords: Default::default(),
+        })
         .collect::<Vec<_>>(),
       indices,
     }

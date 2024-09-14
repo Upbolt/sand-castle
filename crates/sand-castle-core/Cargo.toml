@@ -11,8 +11,36 @@ bytemuck = { version = "1.17", features = ["bytemuck_derive", "derive"] }
 derive_builder = "0.20"
 derive_more = { version = "1.0", features = ["deref", "from"] }
 getset = "0.1"
-glam = { version = "0.28.0", features = ["bytemuck"] }
-indexmap = "2.2.6"
+glam = { version = "0.28", features = ["bytemuck"] }
+indexmap = "2.5"
 uuid = { version = "1.10", features = ["v4"] }
-web-sys = { version = "0.3.70", features = ["HtmlCanvasElement"] }
+web-sys = { version = "0.3", features = ["HtmlCanvasElement"] }
 wgpu = { version = "22.0", features = ["webgl", "webgpu"] }
+
+async-channel = { version = "2.3", optional = true }
+gltf = { version = "1.4", optional = true }
+image = { version = "0.25", optional = true }
+js-sys = { version = "0.3", optional = true }
+reqwasm = { version = "0.5", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+
+[features]
+loader_gltf = ["loader_textures", "dep:gltf", "dep:reqwasm"]
+to_url = ["web-sys/Blob", "web-sys/BlobPropertyBag"]
+loader_textures = [
+  "wasm-bindgen",
+  "wasm-bindgen-futures",
+  "async-channel",
+  "js-sys",
+  "image",
+  "web-sys/Url",
+  "web-sys/Window",
+  "web-sys/Document",
+  "web-sys/HtmlElement",
+  "web-sys/HtmlCanvasElement",
+  "web-sys/HtmlImageElement",
+  "web-sys/Event",
+  "web-sys/CanvasRenderingContext2d",
+  "web-sys/ImageData",
+]

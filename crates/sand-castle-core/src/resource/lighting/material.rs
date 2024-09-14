@@ -1,9 +1,9 @@
-use std::any::TypeId;
-
 use basic::BasicMaterial;
 use getset::Getters;
 use shader::ShaderMaterial;
 use wgpu::{BindGroupLayoutDescriptor, ShaderModuleDescriptor};
+
+use crate::resource::{texture::TextureId, Id};
 
 pub mod basic;
 pub mod phong;
@@ -12,7 +12,13 @@ pub mod shader;
 #[derive(Getters, Debug, Clone)]
 #[getset(get = "pub")]
 pub struct Material {
-  pub(crate) shader_type: TypeId,
+  id: Id,
+
+  #[getset(set = "pub")]
+  pub(crate) diffuse_map_texture_id: Option<TextureId>,
+  #[getset(set = "pub")]
+  pub(crate) normal_map_texture_id: Option<TextureId>,
+
   pub(crate) vertex_shader: ShaderModuleDescriptor<'static>,
   pub(crate) fragment_shader: ShaderModuleDescriptor<'static>,
   pub(crate) fragment_data: Vec<u8>,

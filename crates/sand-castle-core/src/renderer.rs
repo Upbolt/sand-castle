@@ -85,6 +85,7 @@ impl RendererBuilder {
       Limits::downlevel_defaults()
     };
     required_limits.max_bind_groups = 8;
+    required_limits.max_texture_dimension_2d = 8192;
     // required_limits.max_storage_buffers_per_shader_stage = 1;
 
     let (device, queue) = adapter

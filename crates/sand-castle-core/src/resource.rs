@@ -2,6 +2,9 @@ pub mod camera;
 pub mod geometry;
 pub mod lighting;
 pub mod object_3d;
+pub mod texture;
+
+pub mod loader;
 
 use derive_more::{Deref, From};
 use uuid::Uuid;

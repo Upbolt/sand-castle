@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 
 pub use sand_castle_core::{
   resource::{
@@ -12,12 +12,12 @@ use crate::scene::SceneContextValue;
 
 #[component]
 pub fn OrthographicCamera(
-  #[prop(optional, into)] yaw: MaybeProp<f32>,
-  #[prop(optional, into)] pitch: MaybeProp<f32>,
+  #[prop(optional, into)] yaw: MaybeSignal<f32>,
+  #[prop(optional, into)] pitch: MaybeSignal<f32>,
   #[prop(into)] screen_size: MaybeSignal<Vec2>,
-  #[prop(optional, into)] position: MaybeProp<Vec3>,
-  #[prop(optional, into)] rotation: MaybeProp<Quat>,
-  #[prop(optional, into)] scale: MaybeProp<Scale>,
+  #[prop(optional, into)] position: MaybeSignal<Vec3>,
+  #[prop(optional, into)] rotation: MaybeSignal<Quat>,
+  #[prop(optional, into)] scale: MaybeSignal<Scale>,
 ) -> impl IntoView {
   let SceneContextValue {
     scene, renderer, ..
@@ -27,12 +27,12 @@ pub fn OrthographicCamera(
 
   Effect::new(move |_| {
     let orthographic_camera = CoreOrthographicCamera::builder()
-      .yaw(yaw.get_untracked().unwrap_or_default())
-      .pitch(pitch.get_untracked().unwrap_or_default())
+      .yaw(yaw.get_untracked())
+      .pitch(pitch.get_untracked())
       .screen_size(screen_size.get_untracked())
-      .position(position.get_untracked().unwrap_or_default())
-      .rotation(rotation.get_untracked().unwrap_or_default())
-      .scale(scale.get_untracked().unwrap_or_default())
+      .position(position.get_untracked())
+      .rotation(rotation.get_untracked())
+      .scale(scale.get_untracked())
       .build();
 
     scene.update(|scene| {

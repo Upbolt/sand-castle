@@ -2,6 +2,7 @@ struct VertexOutput {
   @builtin(position) clip_position: vec4<f32>,
   @location(0) normal: vec3<f32>,
   @location(1) world_position: vec3<f32>,
+  @location(2) tex_coords: vec2<f32>,
 };
 
 @group(2) @binding(0)
@@ -22,6 +23,11 @@ var<uniform> directional_light_count: LightCount;
 var<uniform> point_light_count: LightCount;
 @group(5) @binding(5)
 var<uniform> spot_light_count: LightCount;
+
+@group(6) @binding(0)
+var diffuse_map: texture_2d<f32>;
+@group(6) @binding(1)
+var diffuse_sampler: sampler;
 
 struct SpotLight {
   point_light: PointLight,
@@ -58,7 +64,7 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     light_influence += emission_from_spot_light(spot_lights[index], vertex);
   }
 
-  return light_influence * material_color;
+  return light_influence * textureSample(diffuse_map, diffuse_sampler, vertex.tex_coords);
 }
 
 const attenuation_const: f32 = 1.0;

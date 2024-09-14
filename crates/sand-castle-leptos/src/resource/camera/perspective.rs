@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::prelude::*;
 
 pub use sand_castle_core::{
   resource::{
@@ -12,14 +12,14 @@ use crate::scene::SceneContextValue;
 
 #[component]
 pub fn PerspectiveCamera(
-  #[prop(optional, into)] yaw: MaybeProp<f32>,
-  #[prop(optional, into)] pitch: MaybeProp<f32>,
+  #[prop(optional, into)] yaw: MaybeSignal<f32>,
+  #[prop(optional, into)] pitch: MaybeSignal<f32>,
   #[prop(default=70.0.into(), into)] fov: MaybeSignal<f32>,
   #[prop(into)] aspect_ratio: MaybeSignal<f32>,
-  #[prop(optional, into)] view_frustum: MaybeProp<ViewFrustum>,
-  #[prop(optional, into)] position: MaybeProp<Vec3>,
-  #[prop(optional, into)] rotation: MaybeProp<Quat>,
-  #[prop(optional, into)] scale: MaybeProp<Scale>,
+  #[prop(optional, into)] view_frustum: MaybeSignal<ViewFrustum>,
+  #[prop(optional, into)] position: MaybeSignal<Vec3>,
+  #[prop(optional, into)] rotation: MaybeSignal<Quat>,
+  #[prop(optional, into)] scale: MaybeSignal<Scale>,
 ) -> impl IntoView {
   let SceneContextValue {
     scene, renderer, ..
@@ -32,36 +32,36 @@ pub fn PerspectiveCamera(
   let position = Memo::new(move |_| position.get());
 
   Effect::new(move |_| {
-    if camera.with(|camera| camera.is_none()) {
-      let perspective_camera = CorePerspectiveCamera::builder()
-        .yaw(yaw.get().unwrap_or_default())
-        .pitch(pitch.get().unwrap_or_default())
-        .fov(fov.get())
-        .aspect_ratio(aspect_ratio.get())
-        .view_frustum(view_frustum.get().unwrap_or_default())
-        .position(position.get().unwrap_or_default())
-        .rotation(rotation.get().unwrap_or_default())
-        .scale(scale.get().unwrap_or_default())
-        .build();
+    let Some(renderer) = renderer.get() else {
+      return;
+    };
 
-      scene.update(|scene| {
-        let Some(renderer) = renderer.get() else {
-          return;
-        };
+    let perspective_camera = CorePerspectiveCamera::builder()
+      .yaw(yaw.get_untracked())
+      .pitch(pitch.get_untracked())
+      .fov(fov.get_untracked())
+      .aspect_ratio(aspect_ratio.get_untracked())
+      .view_frustum(view_frustum.get_untracked())
+      .position(position.get_untracked())
+      .rotation(rotation.get_untracked())
+      .scale(scale.get_untracked())
+      .build();
 
-        if let Some(scene) = scene {
-          scene.set_camera(&renderer, &perspective_camera);
-        }
-      });
+    scene.update(|scene| {
+      if let Some(scene) = scene {
+        scene.set_camera(&renderer, &perspective_camera);
+      }
+    });
 
-      camera.set(Some(perspective_camera));
-    }
+    camera.set(Some(perspective_camera));
   });
 
   Effect::new(move |_| {
-    let (Some(yaw), Some(renderer)) = (yaw.get(), renderer.get()) else {
+    let Some(renderer) = renderer.get() else {
       return;
     };
+
+    let yaw = yaw.get();
 
     camera.update(|camera| {
       let Some(camera) = camera else {
@@ -79,9 +79,11 @@ pub fn PerspectiveCamera(
   });
 
   Effect::new(move |_| {
-    let (Some(pitch), Some(renderer)) = (pitch.get(), renderer.get()) else {
+    let Some(renderer) = renderer.get() else {
       return;
     };
+
+    let pitch = pitch.get();
 
     camera.update(|camera| {
       let Some(camera) = camera else {
@@ -99,9 +101,11 @@ pub fn PerspectiveCamera(
   });
 
   Effect::new(move |_| {
-    let (Some(position), Some(renderer)) = (position.get(), renderer.get()) else {
+    let Some(renderer) = renderer.get() else {
       return;
     };
+
+    let position = position.get();
 
     camera.update(|camera| {
       let Some(camera) = camera else {
