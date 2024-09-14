@@ -94,8 +94,11 @@ fn GltfModel(#[prop(into)] source: MaybeProp<Vec<u8>>) -> impl IntoView {
 
 #[component]
 fn App() -> impl IntoView {
-  let camera_pos = RwSignal::new(Vec3::new(4.79, 7.19, 5.09));
-  let char_pos = RwSignal::new(Vec3::default());
+  let yaw = RwSignal::new(230.0_f32.to_radians());
+  let pitch = RwSignal::new(-12.0_f32.to_radians());
+  let source = RwSignal::new(None);
+
+  let camera_pos = RwSignal::new(Vec3::new(3.5, 3.5, 3.5));
 
   let up = RwSignal::new(false);
   let down = RwSignal::new(false);
@@ -196,11 +199,6 @@ fn App() -> impl IntoView {
     }
   });
 
-  let yaw = RwSignal::new(-135.5_f32.to_radians());
-  let pitch = RwSignal::new(-45.0_f32.to_radians());
-
-  let source = RwSignal::new(None);
-
   use_interval_fn(
     move || {
       camera_pos.update(|pos| {
@@ -269,7 +267,10 @@ fn App() -> impl IntoView {
     1,
   );
 
+
   view! {
+    <span>"(W, A, S, D, Space, Shift) to move around, Hold left click to pan camera"</span>
+
     <h1 style="margin-bottom: 0.125rem">"sand-castle leptos"</h1>
 
     <Canvas

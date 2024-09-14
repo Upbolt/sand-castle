@@ -33,7 +33,7 @@ fn main() {
 
 #[component]
 fn App() -> impl IntoView {
-  let camera_pos = RwSignal::new(Vec3::new(0.0, 5.0, 5.0));
+  let camera_pos = RwSignal::new(Vec3::new(0.0, 2.5, 5.0));
 
   let yaw = RwSignal::new(270.0f32.to_radians());
   let pitch = RwSignal::new(-25.0f32.to_radians());
