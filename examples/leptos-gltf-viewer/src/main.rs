@@ -3,6 +3,8 @@ extern crate leptos_use;
 extern crate reqwasm;
 extern crate sand_castle_leptos;
 
+use std::str::FromStr;
+
 use leptos::{
   ev::{
     beforeunload, click, keydown, keyup, mousedown, mousemove, mouseup, BeforeUnloadEvent, Event,
@@ -271,6 +273,9 @@ fn App() -> impl IntoView {
     1,
   );
 
+  let roughness = RwSignal::new(1.0);
+  let metalness = RwSignal::new(0.0);
+
   view! {
     <span>"(W, A, S, D, Space, Shift) to move around, Hold left click to pan camera"</span>
 
@@ -293,11 +298,7 @@ fn App() -> impl IntoView {
           pitch=pitch
         />
 
-        <Mesh>
-          <Cuboid />
-          <PbrMaterial color=Vec4::new(1.0, 0.0, 0.0, 1.0) metalness=1.0 roughness=0.0 />
-        </Mesh>
-        // <GltfModel source=source />
+        <GltfModel source=source />
       </Scene>
     </Canvas>
 
@@ -364,6 +365,92 @@ fn App() -> impl IntoView {
 
       <div>
         <span>{move || format!("position: {:?}", camera_pos.get())}</span>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="margin-bottom: 0.25rem">"object"</h2>
+
+      <div>
+        <div>{move || format!("roughness: {}", roughness.get())}</div>
+        <input
+          type="range"
+          value=move || roughness.get().to_string()
+          min="0"
+          step="0.05"
+          max="1"
+          on:change=move|ev: Event| {
+            let Some(target) = ev.target() else {
+              return;
+            };
+
+            let Some(input) = target.dyn_ref::<HtmlInputElement>() else {
+              return;
+            };
+
+            let Ok(value) = f32::from_str(&input.value()) else {
+              return;
+            };
+
+            roughness.set(value);
+          }
+          on:input=move|ev: Event| {
+            let Some(target) = ev.target() else {
+              return;
+            };
+
+            let Some(input) = target.dyn_ref::<HtmlInputElement>() else {
+              return;
+            };
+
+            let Ok(value) = f32::from_str(&input.value()) else {
+              return;
+            };
+
+            roughness.set(value);
+          }
+        />
+      </div>
+
+      <div>
+        <div>{move || format!("metalness: {}", metalness.get())}</div>
+        <input
+          type="range"
+          value=move || metalness.get().to_string()
+          min="0"
+          step="0.05"
+          max="1"
+          on:change=move|ev: Event| {
+            let Some(target) = ev.target() else {
+              return;
+            };
+
+            let Some(input) = target.dyn_ref::<HtmlInputElement>() else {
+              return;
+            };
+
+            let Ok(value) = f32::from_str(&input.value()) else {
+              return;
+            };
+
+            metalness.set(value);
+          }
+          on:input=move|ev: Event| {
+            let Some(target) = ev.target() else {
+              return;
+            };
+
+            let Some(input) = target.dyn_ref::<HtmlInputElement>() else {
+              return;
+            };
+
+            let Ok(value) = f32::from_str(&input.value()) else {
+              return;
+            };
+
+            metalness.set(value);
+          }
+        />
       </div>
     </div>
   }

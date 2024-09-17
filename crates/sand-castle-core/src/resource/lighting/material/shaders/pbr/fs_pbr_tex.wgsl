@@ -90,11 +90,15 @@ fn emission_from_point_light(
   light: PointLight,
   vertex: VertexOutput,
 ) -> vec4<f32> {
-  let light_to_pixel = normalize(light.pos - vertex.world_position);
+  var light_to_pixel = light.pos - vertex.world_position;
   let light_distance = length(light_to_pixel);
-  let light_direction = light_to_pixel / light_distance;
 
-  let attenuation = 1.0 / (attenuation_const + attenuation_linear * light_distance + attenuation_quad * (light_distance * light_distance));
+  light_to_pixel = normalize(light_to_pixel);
+
+  var light_intensity = light.color;
+  light_intensity = light_intensity / (light_distance * light_distance);
+
+  // let attenuation = 1.0 / (attenuation_const + attenuation_linear * light_distance + attenuation_quad * (light_distance * light_distance));
 
   let view_normal = normalize(vertex.camera_pos - vertex.world_position);
   let half_vector = normalize(view_normal + light_to_pixel);
@@ -104,24 +108,22 @@ fn emission_from_point_light(
   let ks = f;
   let kd = 1.0 - ks;
 
-  let light_dot = max(dot(light_direction, light_to_pixel), 0.0);
-  let light_view_dot = max(dot(light_direction, view_normal), 0.0);
+  let light_dot = max(dot(vertex.normal, light_to_pixel), 0.0);
+  let view_dot = max(dot(vertex.normal, view_normal), 0.0);
 
-  let specular_brdf_nom = ggx(max(dot(light_direction, half_vector), 0.0))
+  let specular_brdf_nom = ggx(max(dot(vertex.normal, half_vector), 0.0))
     * f
-    * geom_smith(max(dot(light_direction, light_to_pixel), 0.0))
-    * geom_smith(max(dot(light_direction, view_normal), 0.0));
+    * geom_smith(light_dot)
+    * geom_smith(view_dot);
 
-  let specular_brdf = specular_brdf_nom / ( 4.0 * light_view_dot * light_dot * 0.0001 );
+  let specular_brdf = specular_brdf_nom / ( 4.0 * view_dot * light_dot + 0.0001 );
 
-  // var lambert = vec3<f32>(0.0, 0.0, 0.0);
   let lambert = mix(material.color.xyz, vec3<f32>(0.0, 0.0, 0.0), material.metalness);
   let specular_color = mix(vec3<f32>(1.0, 1.0, 1.0), material.color.xyz, material.metalness);
 
   let diffuse_brdf = kd * lambert / PI;
-
-  let diffuse = (diffuse_brdf + (specular_brdf * specular_color)) * attenuation * max(dot(vertex.normal, light_direction), 0.0);
-  // let diffuse = light.color * attenuation * max(dot(vertex.normal, light_direction), 0.0);
+  // let diffuse = (diffuse_brdf + (specular_brdf * specular_color)) * attenuation * light_dot;
+  let diffuse = (diffuse_brdf + (specular_brdf * specular_color)) * light_intensity * light_dot;
 
   return vec4<f32>(diffuse, 1.0);
 }
