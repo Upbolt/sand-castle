@@ -3,6 +3,7 @@ struct VertexOutput {
   @location(0) normal: vec3<f32>,
   @location(1) world_position: vec3<f32>,
   @location(2) tex_coords: vec2<f32>,
+  @location(3) camera_pos: vec3<f32>,
 };
 
 @group(0) @binding(0)
@@ -29,6 +30,7 @@ fn vs_main(
   out.normal = view_matrix_normal * normal;
   out.clip_position = camera * world_position;
   out.tex_coords = tex_coords;
+  out.camera_pos = camera[3].xyz;
 
   return out;
 }

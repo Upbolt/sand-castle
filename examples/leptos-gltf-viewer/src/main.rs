@@ -16,8 +16,10 @@ use sand_castle_leptos::{
   canvas::{Backend, Canvas},
   resource::{
     camera::perspective::PerspectiveCamera,
+    geometry::cuboid::Cuboid,
     lighting::{
       light::{ambient_light::AmbientLight, point_light::PointLight},
+      material::pbr::PbrMaterial,
       material::phong::PhongMaterial,
     },
     loader::{
@@ -75,8 +77,10 @@ fn GltfModel(#[prop(into)] source: MaybeProp<Vec<u8>>) -> impl IntoView {
                           position=translation
                           rotation=rotation
                         >
-                          <PhongMaterial
+                          <PbrMaterial
                             color=color
+                            roughness=0.0
+                            metalness=1.0
                             diffuse_map_texture_id=texture_id
                           />
                         </Mesh>
@@ -267,7 +271,6 @@ fn App() -> impl IntoView {
     1,
   );
 
-
   view! {
     <span>"(W, A, S, D, Space, Shift) to move around, Hold left click to pan camera"</span>
 
@@ -290,7 +293,11 @@ fn App() -> impl IntoView {
           pitch=pitch
         />
 
-        <GltfModel source=source />
+        <Mesh>
+          <Cuboid />
+          <PbrMaterial color=Vec4::new(1.0, 0.0, 0.0, 1.0) metalness=1.0 roughness=0.0 />
+        </Mesh>
+        // <GltfModel source=source />
       </Scene>
     </Canvas>
 
