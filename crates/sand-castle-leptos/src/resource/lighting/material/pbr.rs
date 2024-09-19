@@ -30,6 +30,8 @@ pub fn PbrMaterial(
   } = use_context().expect("`PbrMaterial` must be used in a Scene component");
 
   Effect::new(move |_| {
+    leptos::logging::log!("hello");
+
     if material_loader.with(|loader| loader.is_none()) {
       return;
     }
@@ -71,6 +73,16 @@ pub fn PbrMaterial(
             mesh,
             bytemuck::cast_slice(&[color, Vec4::new(roughness, metalness, 0.0, 0.0)]),
           );
+        }
+      });
+    });
+  });
+
+  on_cleanup(move || {
+    mesh.with(|mesh| {
+      scene.update(|scene| {
+        if let (Some(scene), Some(mesh)) = (scene, mesh) {
+          scene.remove_material(mesh);
         }
       });
     });

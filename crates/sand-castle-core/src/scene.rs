@@ -199,9 +199,10 @@ impl SceneBuilder {
         }],
       });
 
+    let camera_buffer_contents = [0.0f32; 4 * 5];
     let camera_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
       label: None,
-      contents: bytemuck::cast_slice(&[Mat4::default()]),
+      contents: bytemuck::cast_slice(&camera_buffer_contents),
       usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
     });
 
@@ -1056,9 +1057,17 @@ impl Scene {
   }
 
   pub fn set_camera(&mut self, renderer: &Renderer, camera: &impl Camera) {
+    let mut camera_buffer_contents = [0.0; 4 * 5];
+    camera
+      .to_matrix()
+      .write_cols_to_slice(&mut camera_buffer_contents);
+    camera
+      .pos()
+      .write_to_slice(&mut camera_buffer_contents[16..]);
+
     let camera_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
       label: None,
-      contents: bytemuck::cast_slice(&[camera.to_matrix()]),
+      contents: bytemuck::cast_slice(&camera_buffer_contents),
       usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
     });
 
@@ -1375,5 +1384,14 @@ impl Scene {
     if let Some((buffer, _)) = &subject.material_data {
       renderer.queue().write_buffer(buffer, 0, data);
     }
+  }
+
+  pub fn remove_material(&mut self, resource: &(impl Resource + Object3D)) {
+    let Some(subject) = self.subjects.get_mut(&resource.id()) else {
+      return;
+    };
+
+    subject.material_data = None;
+    subject.pipeline = None;
   }
 }

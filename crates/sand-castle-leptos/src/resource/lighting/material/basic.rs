@@ -66,5 +66,15 @@ pub fn BasicMaterial(
     });
   });
 
+  on_cleanup(move || {
+    mesh.with(|mesh| {
+      scene.update(|scene| {
+        if let (Some(scene), Some(mesh)) = (scene, mesh) {
+          scene.remove_material(mesh);
+        }
+      });
+    });
+  });
+
   view! {}
 }

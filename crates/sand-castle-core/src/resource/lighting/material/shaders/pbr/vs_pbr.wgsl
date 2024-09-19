@@ -7,13 +7,19 @@ struct VertexOutput {
 };
 
 @group(0) @binding(0)
-var<uniform> camera: mat4x4<f32>;
+var<uniform> camera: Camera;
 
 @group(1) @binding(0)
 var<uniform> transformation: mat4x4<f32>;
 
 @group(3) @binding(0)
 var<uniform> matrix_normal: mat4x4<f32>;
+
+struct Camera {
+  view_matrix: mat4x4<f32>,
+  position: vec3<f32>,
+  pad0: f32,
+}
 
 @vertex
 fn vs_main(
@@ -28,9 +34,9 @@ fn vs_main(
 
   out.world_position = world_position.xyz;
   out.normal = view_matrix_normal * normal;
-  out.clip_position = camera * world_position;
+  out.clip_position = camera.view_matrix * world_position;
   out.tex_coords = tex_coords;
-  out.camera_pos = camera[3].xyz;
+  out.camera_pos = camera.position;
 
   return out;
 }
