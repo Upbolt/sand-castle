@@ -2,8 +2,16 @@ struct VertexOutput {
   @builtin(position) clip_position: vec4<f32>,
   @location(0) normal: vec3<f32>,
   @location(1) world_position: vec3<f32>,
-  @location(3) camera_pos: vec3<f32>,
 };
+
+@group(0) @binding(0)
+var<uniform> camera: Camera;
+
+struct Camera {
+  view_matrix: mat4x4<f32>,
+  position: vec3<f32>,
+  pad0: f32,
+}
 
 @group(2) @binding(0)
 var<uniform> material: Material;
@@ -84,17 +92,15 @@ fn emission_from_point_light(
   light: PointLight,
   vertex: VertexOutput,
 ) -> vec4<f32> {
-  var light_to_pixel = light.pos - vertex.world_position;
-  let light_distance = length(light_to_pixel);
+  let vertex_normal = normalize(vertex.normal);
 
-  light_to_pixel = normalize(light_to_pixel);
+  var light_to_pixel = normalize(light.pos - vertex.world_position);
+  let light_distance = length(light_to_pixel);
 
   var light_intensity = light.color;
   light_intensity = light_intensity / (light_distance * light_distance);
 
-  // let attenuation = 1.0 / (attenuation_const + attenuation_linear * light_distance + attenuation_quad * (light_distance * light_distance));
-
-  let view_normal = normalize(vertex.camera_pos - vertex.world_position);
+  let view_normal = normalize(camera.position - vertex.world_position);
   let half_vector = normalize(view_normal + light_to_pixel);
 
   let f = schlick(max(dot(view_normal, half_vector), 0.0));
@@ -102,10 +108,10 @@ fn emission_from_point_light(
   let ks = f;
   let kd = 1.0 - ks;
 
-  let light_dot = max(dot(vertex.normal, light_to_pixel), 0.0);
-  let view_dot = max(dot(vertex.normal, view_normal), 0.0);
+  let light_dot = max(dot(vertex_normal, light_to_pixel), 0.0);
+  let view_dot = max(dot(vertex_normal, view_normal), 0.0);
 
-  let specular_brdf_nom = ggx(max(dot(vertex.normal, half_vector), 0.0))
+  let specular_brdf_nom = ggx(max(dot(vertex_normal, half_vector), 0.0))
     * f
     * geom_smith(light_dot)
     * geom_smith(view_dot);
@@ -116,7 +122,6 @@ fn emission_from_point_light(
   let specular_color = mix(vec3<f32>(1.0, 1.0, 1.0), material.color.xyz, material.metalness);
 
   let diffuse_brdf = kd * lambert / PI;
-  // let diffuse = (diffuse_brdf + (specular_brdf * specular_color)) * attenuation * light_dot;
   let diffuse = (diffuse_brdf + (specular_brdf * specular_color)) * light_intensity * light_dot;
 
   return vec4<f32>(diffuse, 1.0);
@@ -130,7 +135,7 @@ fn ggx(n_dot_h: f32) -> f32 {
 }
 
 fn geom_smith(dp: f32) -> f32 {
-  let k = (material.roughness + 1.0) * (material.roughness * 1.0) / 8.0;
+  let k = (material.roughness + 1.0) * (material.roughness + 1.0) / 8.0;
   let denom = dp * (1 - k) + k;
 
   return dp / denom;

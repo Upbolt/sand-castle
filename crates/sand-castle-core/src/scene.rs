@@ -186,10 +186,10 @@ impl SceneBuilder {
     let camera_layout = renderer
       .device()
       .create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: None,
+        label: Some("camera bind group layout"),
         entries: &[BindGroupLayoutEntry {
           binding: 0,
-          visibility: ShaderStages::VERTEX,
+          visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
           ty: BindingType::Buffer {
             ty: BufferBindingType::Uniform,
             has_dynamic_offset: false,
@@ -201,7 +201,7 @@ impl SceneBuilder {
 
     let camera_buffer_contents = [0.0f32; 4 * 5];
     let camera_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: None,
+      label: Some("camera buffer"),
       contents: bytemuck::cast_slice(&camera_buffer_contents),
       usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
     });
@@ -226,7 +226,7 @@ impl SceneBuilder {
       renderer
         .device()
         .create_bind_group_layout(&BindGroupLayoutDescriptor {
-          label: None,
+          label: Some("ambient light layout"),
           entries: &[BindGroupLayoutEntry {
             binding: 0,
             visibility: ShaderStages::FRAGMENT,
@@ -240,7 +240,7 @@ impl SceneBuilder {
         });
 
     let ambient_light_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: None,
+      label: Some("ambient light buffer"),
       contents: bytemuck::cast_slice(&[Vec4::new(0.0, 0.0, 0.0, 1.0)]),
       usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
     });
@@ -265,7 +265,7 @@ impl SceneBuilder {
       renderer
         .device()
         .create_bind_group_layout(&BindGroupLayoutDescriptor {
-          label: None,
+          label: Some("dynamic lights layout"),
           entries: &[
             BindGroupLayoutEntry {
               binding: 0,
@@ -417,7 +417,7 @@ impl SceneBuilder {
 
   fn init_depth(mut self, renderer: &Renderer) -> Self {
     let texture = renderer.device().create_texture(&TextureDescriptor {
-      label: None,
+      label: Some("depth texture"),
       size: Extent3d {
         width: renderer.canvas().client_width() as u32,
         height: renderer.canvas().client_height() as u32,
@@ -520,7 +520,7 @@ impl Scene {
 
     let vertices = (
       renderer.device().create_buffer_init(&BufferInitDescriptor {
-        label: None,
+        label: Some("vertex buffer"),
         contents: bytemuck::cast_slice(
           geometry
             .map(|geometry| geometry.vertices())
@@ -535,7 +535,7 @@ impl Scene {
 
     let indices = (
       renderer.device().create_buffer_init(&BufferInitDescriptor {
-        label: None,
+        label: Some("index buffer"),
         contents: bytemuck::cast_slice(
           geometry
             .map(|geometry| geometry.indices())
@@ -549,7 +549,7 @@ impl Scene {
     );
 
     let transform = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: None,
+      label: Some("transform buffer"),
       contents: bytemuck::cast_slice(&[
         Mat4::from_translation(object.pos().clone()) * Mat4::from_quat(object.rot().clone())
       ]),
@@ -557,7 +557,7 @@ impl Scene {
     });
 
     let normal = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: None,
+      label: Some("normal buffer"),
       contents: bytemuck::cast_slice(&[Mat4::from_quat(object.rot().clone())]),
       usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
     });
@@ -626,7 +626,7 @@ impl Scene {
     let transform_layout = renderer
       .device()
       .create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: None,
+        label: Some("transform layout"),
         entries: &[BindGroupLayoutEntry {
           binding: 0,
           visibility: ShaderStages::VERTEX,
@@ -651,7 +651,7 @@ impl Scene {
     let normal_layout = renderer
       .device()
       .create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: None,
+        label: Some("normal bind group layout"),
         entries: &[BindGroupLayoutEntry {
           binding: 0,
           visibility: ShaderStages::VERTEX,
@@ -688,13 +688,13 @@ impl Scene {
             });
 
         let fragment_data_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
-          label: None,
+          label: Some("fragment data buffer"),
           contents: &material.fragment_data(),
           usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
 
         let fragment_data_bind_group = renderer.device().create_bind_group(&BindGroupDescriptor {
-          label: None,
+          label: Some("fragment data bind group"),
           layout: fragment_data_layout,
           entries: &[BindGroupEntry {
             binding: 0,
@@ -709,8 +709,8 @@ impl Scene {
             .cloned()
             .unwrap_or_else(|| {
               let mut bind_group_layouts = vec![
-                &transform_layout,
                 &self.camera_layout,
+                &transform_layout,
                 fragment_data_layout,
                 &normal_layout,
                 &self.ambient_light_layout,
@@ -725,7 +725,7 @@ impl Scene {
                 renderer
                   .device()
                   .create_pipeline_layout(&PipelineLayoutDescriptor {
-                    label: None,
+                    label: Some("insert pipeline layout"),
                     bind_group_layouts: &bind_group_layouts,
                     push_constant_ranges: &[],
                   });
@@ -1066,7 +1066,7 @@ impl Scene {
       .write_to_slice(&mut camera_buffer_contents[16..]);
 
     let camera_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: None,
+      label: Some("camera buffer"),
       contents: bytemuck::cast_slice(&camera_buffer_contents),
       usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
     });
@@ -1178,7 +1178,7 @@ impl Scene {
     let transform_layout = renderer
       .device()
       .create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: None,
+        label: Some("transform bind group layout"),
         entries: &[BindGroupLayoutEntry {
           binding: 0,
           visibility: ShaderStages::VERTEX,
@@ -1194,7 +1194,7 @@ impl Scene {
     let normal_layout = renderer
       .device()
       .create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: None,
+        label: Some("normal bind group layout"),
         entries: &[BindGroupLayoutEntry {
           binding: 0,
           visibility: ShaderStages::VERTEX,
@@ -1217,13 +1217,13 @@ impl Scene {
       });
 
     let fragment_data_buffer = renderer.device().create_buffer_init(&BufferInitDescriptor {
-      label: None,
+      label: Some("fragment data buffer"),
       contents: &material.fragment_data(),
       usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
     });
 
     let fragment_data_bind_group = renderer.device().create_bind_group(&BindGroupDescriptor {
-      label: None,
+      label: Some("fragment data bind group"),
       layout: fragment_data_layout,
       entries: &[BindGroupEntry {
         binding: 0,
@@ -1237,8 +1237,8 @@ impl Scene {
       .cloned()
       .unwrap_or_else(|| {
         let mut bind_group_layouts = vec![
-          &transform_layout,
           &self.camera_layout,
+          &transform_layout,
           fragment_data_layout,
           &normal_layout,
           &self.ambient_light_layout,
@@ -1252,7 +1252,7 @@ impl Scene {
         let pipeline_layout = renderer
           .device()
           .create_pipeline_layout(&PipelineLayoutDescriptor {
-            label: None,
+            label: Some("update pipeline layout"),
             bind_group_layouts: &bind_group_layouts,
             push_constant_ranges: &[],
           });
@@ -1347,7 +1347,7 @@ impl Scene {
 
     let vertices = (
       renderer.device().create_buffer_init(&BufferInitDescriptor {
-        label: None,
+        label: Some("update vertex buffer"),
         contents: bytemuck::cast_slice(geometry.vertices()),
         usage: BufferUsages::VERTEX,
       }),
@@ -1356,7 +1356,7 @@ impl Scene {
 
     let indices = (
       renderer.device().create_buffer_init(&BufferInitDescriptor {
-        label: None,
+        label: Some("update index buffer"),
         contents: bytemuck::cast_slice(geometry.indices()),
         usage: BufferUsages::INDEX,
       }),

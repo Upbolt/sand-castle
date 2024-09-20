@@ -21,8 +21,7 @@ use sand_castle_leptos::{
     geometry::cuboid::Cuboid,
     lighting::{
       light::{ambient_light::AmbientLight, point_light::PointLight},
-      material::pbr::PbrMaterial,
-      material::phong::PhongMaterial,
+      material::{basic::BasicMaterial, pbr::PbrMaterial, phong::PhongMaterial},
     },
     loader::{
       gltf::{use_gltf_loader_from_source, Gltf, LoadGltfError, LoadedGeometry, LoadedTransform},
@@ -305,8 +304,13 @@ fn App() -> impl IntoView {
       node_ref=canvas
     >
       <Scene color=Vec4::new(0.1, 0.1, 0.1, 1.0)>
-        <AmbientLight color=Vec3::new(0.1, 0.1, 0.1)/>
+        <AmbientLight color=Vec3::new(0.5, 0.5, 0.5)/>
         <PointLight position=Vec3::new(100.0, 100.0, 100.0)/>
+
+        <Mesh position=Vec3::new(100.0, 100.0, 100.0)>
+          <Cuboid />
+          <BasicMaterial color=Vec4::new(1.0, 1.0, 1.0, 1.0) />
+        </Mesh>
 
         <PerspectiveCamera
           aspect_ratio=1080.0/720.0
@@ -394,7 +398,7 @@ fn App() -> impl IntoView {
       <h2 style="margin-bottom: 0.25rem">"object"</h2>
 
       <div>
-        <div>"pbr: "</div>
+        <span>"pbr: "</span>
         <input
           type="checkbox"
           on:change=move|ev: Event| {
