@@ -304,7 +304,7 @@ fn App() -> impl IntoView {
       node_ref=canvas
     >
       <Scene color=Vec4::new(0.1, 0.1, 0.1, 1.0)>
-        <AmbientLight color=Vec3::new(0.5, 0.5, 0.5)/>
+        <AmbientLight color=Vec3::new(0.1, 0.1, 0.1)/>
         <PointLight position=Vec3::new(100.0, 100.0, 100.0)/>
 
         <Mesh position=Vec3::new(100.0, 100.0, 100.0)>
