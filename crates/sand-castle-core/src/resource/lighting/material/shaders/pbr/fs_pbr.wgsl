@@ -105,40 +105,38 @@ fn emission_from_point_light(
 
   let f = schlick(max(dot(view_normal, half_vector), 0.0));
 
-  let ks = f;
-  let kd = 1.0 - ks;
+  let light_dot = max(dot(vertex_normal, light_to_pixel), 0.0000001);
+  let view_dot = max(dot(vertex_normal, view_normal), 0.0000001);
 
-  let light_dot = max(dot(vertex_normal, light_to_pixel), 0.0);
-  let view_dot = max(dot(vertex_normal, view_normal), 0.0);
-
-  let specular_brdf_nom = ggx(max(dot(vertex_normal, half_vector), 0.0))
+  var specular = ggx(max(dot(vertex_normal, half_vector), 0.0))
     * f
     * geom_smith(light_dot)
     * geom_smith(view_dot);
+  specular = specular / max(4.0 * view_dot * light_dot, 0.0000001);
 
-  let specular_brdf = specular_brdf_nom / ( 4.0 * view_dot * light_dot + 0.0001 );
+  let albedo = material.color.xyz;
 
-  let lambert = mix(material.color.xyz, vec3<f32>(0.0, 0.0, 0.0), material.metalness);
-  let specular_color = mix(vec3<f32>(1.0, 1.0, 1.0), material.color.xyz, material.metalness);
+  var kd = 1.0 - f;
+  kd = kd * (1.0 - material.metalness);
 
-  let diffuse_brdf = kd * lambert / PI;
-  let diffuse = (diffuse_brdf + (specular_brdf * specular_color)) * light_intensity * light_dot;
+  let diffuse_brdf = kd * albedo / PI;
+  let diffuse = (diffuse_brdf + specular) * light_intensity * light_dot;
 
   return vec4<f32>(diffuse, 1.0);
 }
 
 fn ggx(n_dot_h: f32) -> f32 {
   let alpha2 = material.roughness * material.roughness * material.roughness * material.roughness;
-  let d = n_dot_h * n_dot_h * (alpha2 - 1) + 1;
+  let d = (n_dot_h * n_dot_h) * (alpha2 - 1) + 1;
 
-  return alpha2 / (PI * d * d);
+  return alpha2 / max(PI * d * d, 0.0000001);
 }
 
 fn geom_smith(dp: f32) -> f32 {
   let k = (material.roughness + 1.0) * (material.roughness + 1.0) / 8.0;
   let denom = dp * (1 - k) + k;
 
-  return dp / denom;
+  return dp / max(denom, 0.0000001);
 }
 
 fn schlick(v_dot_h: f32) -> vec3<f32> {
