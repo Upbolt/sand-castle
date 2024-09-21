@@ -6,6 +6,7 @@ use wgpu::{BindGroupLayoutDescriptor, ShaderModuleDescriptor};
 use crate::resource::{texture::TextureId, Id};
 
 pub mod basic;
+pub mod pbr;
 pub mod phong;
 pub mod shader;
 

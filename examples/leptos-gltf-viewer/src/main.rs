@@ -3,6 +3,8 @@ extern crate leptos_use;
 extern crate reqwasm;
 extern crate sand_castle_leptos;
 
+use std::str::FromStr;
+
 use leptos::{
   ev::{
     beforeunload, click, keydown, keyup, mousedown, mousemove, mouseup, BeforeUnloadEvent, Event,
@@ -16,9 +18,10 @@ use sand_castle_leptos::{
   canvas::{Backend, Canvas},
   resource::{
     camera::perspective::PerspectiveCamera,
+    geometry::cuboid::Cuboid,
     lighting::{
       light::{ambient_light::AmbientLight, point_light::PointLight},
-      material::phong::PhongMaterial,
+      material::{basic::BasicMaterial, pbr::PbrMaterial, phong::PhongMaterial},
     },
     loader::{
       gltf::{use_gltf_loader_from_source, Gltf, LoadGltfError, LoadedGeometry, LoadedTransform},
@@ -49,7 +52,12 @@ fn main() {
 }
 
 #[component]
-fn GltfModel(#[prop(into)] source: MaybeProp<Vec<u8>>) -> impl IntoView {
+fn GltfModel(
+  #[prop(into)] source: MaybeProp<Vec<u8>>,
+  metalness: Signal<f32>,
+  roughness: Signal<f32>,
+  swap_material: Signal<bool>,
+) -> impl IntoView {
   let model = use_gltf_loader_from_source(source);
 
   view! {
@@ -75,10 +83,22 @@ fn GltfModel(#[prop(into)] source: MaybeProp<Vec<u8>>) -> impl IntoView {
                           position=translation
                           rotation=rotation
                         >
-                          <PhongMaterial
-                            color=color
-                            diffuse_map_texture_id=texture_id
-                          />
+                          <Show
+                            when=move || swap_material.get()
+                            fallback=move || view! {
+                              <PhongMaterial
+                                color=color
+                                diffuse_map_texture_id=texture_id
+                              />
+                            }
+                          >
+                            <PbrMaterial
+                              color=color
+                              roughness=roughness
+                              metalness=metalness
+                              diffuse_map_texture_id=texture_id
+                            />
+                          </Show>
                         </Mesh>
                       }
                     }
@@ -267,6 +287,10 @@ fn App() -> impl IntoView {
     1,
   );
 
+  let swap_material = RwSignal::new(false);
+
+  let roughness = RwSignal::new(1.0);
+  let metalness = RwSignal::new(0.0);
 
   view! {
     <span>"(W, A, S, D, Space, Shift) to move around, Hold left click to pan camera"</span>
@@ -279,9 +303,10 @@ fn App() -> impl IntoView {
       attr:height=720
       node_ref=canvas
     >
-      <Scene color=Vec4::new(0.1, 0.1, 0.1, 1.0)>
+      <Scene color=Vec4::new(0.01, 0.01, 0.01, 1.0)>
         <AmbientLight color=Vec3::new(0.1, 0.1, 0.1)/>
-        <PointLight position=Vec3::new(100.0, 100.0, 100.0)/>
+
+        <PointLight position=Vec3::new(7.5, 7.5, 7.5)/>
 
         <PerspectiveCamera
           aspect_ratio=1080.0/720.0
@@ -290,7 +315,12 @@ fn App() -> impl IntoView {
           pitch=pitch
         />
 
-        <GltfModel source=source />
+        <GltfModel
+          source=source
+          metalness=Signal::derive(move || metalness.get())
+          roughness=Signal::derive(move || roughness.get())
+          swap_material=Signal::derive(move || swap_material.get())
+        />
       </Scene>
     </Canvas>
 
@@ -357,6 +387,110 @@ fn App() -> impl IntoView {
 
       <div>
         <span>{move || format!("position: {:?}", camera_pos.get())}</span>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="margin-bottom: 0.25rem">"object"</h2>
+
+      <div>
+        <span>"pbr: "</span>
+        <input
+          type="checkbox"
+          on:change=move|ev: Event| {
+            let Some(target) = ev.target() else {
+              return;
+            };
+
+            let Some(input) = target.dyn_ref::<HtmlInputElement>() else {
+              return;
+            };
+
+            swap_material.set(input.checked());
+          }
+        />
+      </div>
+
+      <div>
+        <div>{move || format!("roughness: {}", roughness.get())}</div>
+        <input
+          type="range"
+          value=move || roughness.get().to_string()
+          min="0"
+          step="0.05"
+          max="1"
+          on:change=move|ev: Event| {
+            let Some(target) = ev.target() else {
+              return;
+            };
+
+            let Some(input) = target.dyn_ref::<HtmlInputElement>() else {
+              return;
+            };
+
+            let Ok(value) = f32::from_str(&input.value()) else {
+              return;
+            };
+
+            roughness.set(value);
+          }
+          on:input=move|ev: Event| {
+            let Some(target) = ev.target() else {
+              return;
+            };
+
+            let Some(input) = target.dyn_ref::<HtmlInputElement>() else {
+              return;
+            };
+
+            let Ok(value) = f32::from_str(&input.value()) else {
+              return;
+            };
+
+            roughness.set(value);
+          }
+        />
+      </div>
+
+      <div>
+        <div>{move || format!("metalness: {}", metalness.get())}</div>
+        <input
+          type="range"
+          value=move || metalness.get().to_string()
+          min="0"
+          step="0.05"
+          max="1"
+          on:change=move|ev: Event| {
+            let Some(target) = ev.target() else {
+              return;
+            };
+
+            let Some(input) = target.dyn_ref::<HtmlInputElement>() else {
+              return;
+            };
+
+            let Ok(value) = f32::from_str(&input.value()) else {
+              return;
+            };
+
+            metalness.set(value);
+          }
+          on:input=move|ev: Event| {
+            let Some(target) = ev.target() else {
+              return;
+            };
+
+            let Some(input) = target.dyn_ref::<HtmlInputElement>() else {
+              return;
+            };
+
+            let Ok(value) = f32::from_str(&input.value()) else {
+              return;
+            };
+
+            metalness.set(value);
+          }
+        />
       </div>
     </div>
   }

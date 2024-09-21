@@ -2,7 +2,7 @@ use leptos::prelude::*;
 
 use sand_castle_core::{
   resource::{
-    lighting::material::{phong::PhongMaterial as CorePhongMaterial, ToMaterial},
+    lighting::material::{pbr::PbrMaterial as CorePbrMaterial, ToMaterial},
     object_3d::Object3D,
     texture::TextureId,
   },
@@ -12,32 +12,38 @@ use sand_castle_core::{
 use crate::{resource::mesh::MeshContextValue, scene::SceneContextValue};
 
 #[component]
-pub fn PhongMaterial(
+pub fn PbrMaterial(
   #[prop(default = Vec4::new(0.0, 0.0, 0.0, 1.0).into(), into)] color: MaybeSignal<Vec4>,
+  #[prop(default = 1.0.into(), into)] roughness: MaybeSignal<f32>,
+  #[prop(default = 0.0.into(), into)] metalness: MaybeSignal<f32>,
   #[prop(optional, into)] diffuse_map_texture_id: MaybeProp<TextureId>,
 ) -> impl IntoView {
   let MeshContextValue {
     mesh, material_id, ..
-  } = use_context().expect("`PhongMaterial` must be used in a `Mesh` component");
+  } = use_context().expect("`PbrMaterial` must be used in a `Mesh` component");
 
   let SceneContextValue {
     scene,
     renderer,
     material_loader,
     ..
-  } = use_context().expect("`PhongMaterial` must be used in a Scene component");
+  } = use_context().expect("`PbrMaterial` must be used in a Scene component");
 
   Effect::new(move |_| {
+    leptos::logging::log!("hello");
+
     if material_loader.with(|loader| loader.is_none()) {
       return;
     }
 
-    let phong_material = CorePhongMaterial::builder()
+    let pbr_material = CorePbrMaterial::builder()
       .color(color.get_untracked())
+      .metalness(metalness.get_untracked())
+      .roughness(roughness.get_untracked())
       .diffuse_map_texture_id(diffuse_map_texture_id.get_untracked())
       .build();
 
-    let material = phong_material.to_material();
+    let material = pbr_material.to_material();
 
     let id = *material.id();
 
@@ -56,11 +62,17 @@ pub fn PhongMaterial(
     };
 
     let color = color.get();
+    let roughness = roughness.get();
+    let metalness = metalness.get();
 
     mesh.with(|mesh| {
       scene.with(|scene| {
         if let (Some(scene), Some(mesh)) = (scene, mesh) {
-          scene.update_material_data(&renderer, mesh, bytemuck::cast_slice(&[color]));
+          scene.update_material_data(
+            &renderer,
+            mesh,
+            bytemuck::cast_slice(&[color, Vec4::new(roughness, metalness, 0.0, 0.0)]),
+          );
         }
       });
     });
