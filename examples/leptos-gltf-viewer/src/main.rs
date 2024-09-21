@@ -303,14 +303,10 @@ fn App() -> impl IntoView {
       attr:height=720
       node_ref=canvas
     >
-      <Scene color=Vec4::new(0.1, 0.1, 0.1, 1.0)>
+      <Scene color=Vec4::new(0.01, 0.01, 0.01, 1.0)>
         <AmbientLight color=Vec3::new(0.1, 0.1, 0.1)/>
-        <PointLight position=Vec3::new(100.0, 100.0, 100.0)/>
 
-        <Mesh position=Vec3::new(100.0, 100.0, 100.0)>
-          <Cuboid />
-          <BasicMaterial color=Vec4::new(1.0, 1.0, 1.0, 1.0) />
-        </Mesh>
+        <PointLight position=Vec3::new(7.5, 7.5, 7.5)/>
 
         <PerspectiveCamera
           aspect_ratio=1080.0/720.0
