@@ -4,7 +4,7 @@ edition = '2021'
 
 [dependencies]
 console_error_panic_hook = "0.1.7"
-leptos = { version = "0.7.0-beta", features = ["csr"] }
+leptos = { version = "0.7", features = ["csr"] }
 sand-castle-leptos = { path = "../../crates/sand-castle-leptos" }
-leptos-use = { git = "https://github.com/Synphonyte/leptos-use", branch = "leptos-0.7" }
-getrandom = { version = "0.2", features = ["js"] }
+leptos-use = "0.15"
+getrandom = { version = "0.3", features = ["wasm_js"] }

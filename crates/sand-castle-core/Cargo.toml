@@ -13,7 +13,7 @@ derive_more = { version = "1.0", features = ["deref", "from"] }
 getset = "0.1"
 glam = { version = "0.28", features = ["bytemuck"] }
 indexmap = "2.5"
-uuid = { version = "1.10", features = ["v4"] }
+uuid = { version = "1.13", features = ["v4", "rng-rand"] }
 web-sys = { version = "0.3", features = ["HtmlCanvasElement"] }
 wgpu = { version = "22.0", features = ["webgl", "webgpu"] }
 

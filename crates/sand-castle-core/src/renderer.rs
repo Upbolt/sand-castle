@@ -2,8 +2,8 @@ use derive_builder::Builder;
 use getset::Getters;
 use web_sys::HtmlCanvasElement;
 use wgpu::{
-  Adapter, Backends, CreateSurfaceError, Device, DeviceDescriptor, Features, Instance,
-  InstanceDescriptor, Limits, MemoryHints, PowerPreference, Queue, RequestAdapterOptions,
+  Adapter, Backends, CompositeAlphaMode, CreateSurfaceError, Device, DeviceDescriptor, Features,
+  Instance, InstanceDescriptor, Limits, MemoryHints, PowerPreference, Queue, RequestAdapterOptions,
   RequestDeviceError, Surface, SurfaceCapabilities, SurfaceConfiguration, SurfaceTarget,
   TextureFormat, TextureUsages,
 };
@@ -48,6 +48,14 @@ pub enum RendererBuildError {
   CreateSurfaceError(CreateSurfaceError),
   RequestDeviceError(RequestDeviceError),
 }
+
+// use wasm_bindgen::prelude::*;
+
+// #[wasm_bindgen]
+// extern "C" {
+//   #[wasm_bindgen(js_namespace = console)]
+//   fn log(s: &str);
+// }
 
 impl RendererBuilder {
   pub async fn build(self) -> Result<Renderer, RendererBuildError> {

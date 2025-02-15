@@ -59,7 +59,7 @@ fn App() -> impl IntoView {
       attr:width=1080
       attr:height=720
     >
-      <Scene color=Vec4::new(0.1, 0.1, 0.1, 1.0)>
+      <Scene color=Vec4::new(0.1, 0.1, 0.1, 0.0)>
         <AmbientLight color=Vec3::new(0.1, 0.1, 0.1)/>
         <PointLight position=Vec3::new(10.0, 10.0, 10.0)/>
 
